@@ -1,0 +1,17 @@
+#include <iostream>
+#include <cmath>
+#include <algorithm>
+#include <vector>
+#include <string>
+#include <memory>
+#include <thread>
+#include <mutex>
+#include <atomic>
+#include <fstream>
+#include <sstream>
+#include <random>
+#include <chrono>
+#include <algorithm>
+#include <numeric>
+#include <omp.h>
+#include <pthread.h>
