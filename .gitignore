@@ -1,2 +1,4 @@
+/build/
 /thirdparty/*
 !/thirdparty/getmatrices.sh
+
