@@ -31,6 +31,10 @@ fi
 
 cd ..
 
+cd thirdparty
+exec ./getmatrices.sh
+cd ..
+
 echo "====================================================="
 echo "           Build completed successfully :)           "
 echo ""
