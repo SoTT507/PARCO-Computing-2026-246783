@@ -16,7 +16,7 @@ if [ ! -d "F1" ]; then
 fi
 
 if [ ! -d "fl2010" ]; then
-  wget https://suitesparse-collection-website.herokuapp.com/MM/DIMACS10/fl2010.tar.gzip
+  wget https://suitesparse-collection-website.herokuapp.com/MM/DIMACS10/fl2010.tar.gz
   gzip -d fl2010.tar.gz
   tar -xf fl2010.tar
   ls fl2010/fl2010.mxt
