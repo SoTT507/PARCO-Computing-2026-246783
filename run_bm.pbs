@@ -1,0 +1,20 @@
+#!/bin/bash
+
+#PBS -o ./bench_out.info
+#PBS -e ./err.info
+
+#PBS -l select=3:ncpus=64:mem=2gb
+
+#PBS -q short_cpuQ
+#PBS -e info.log
+
+cd "$PBS_O_WORKDIR"
+
+for ((i=1; i<=5;i++))
+do
+    echo "Warmup Iteration $i"
+done
+echo "====================================="
+echo "Starting benchmarking"
+echo "====================================="
+./d1_SpMV
