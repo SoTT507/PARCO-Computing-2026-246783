@@ -183,7 +183,7 @@ void SparseMatrixBenchmark::setThreadCounts(const std::vector<int>& counts) {
 }
 
 void SparseMatrixBenchmark::runFullBenchmark() {
-    std::cout << "=== Sparse Matrix-Vector Multiplication Benchmark ===\n\n";
+    std::cout << "--> Sparse Matrix-Vector Multiplication Benchmark <--\n\n";
     
     for (const auto& file : matrix_files) {
         std::cout << "Testing matrix: " << file << "\n";
@@ -218,7 +218,8 @@ void SparseMatrixBenchmark::runFullBenchmark() {
                 auto omp_dynamic = benchmarkCSROMPDynamic(csr, x, threads);
                 auto omp_guided = benchmarkCSROMPGuided(csr, x, threads);
                 auto pthreads = benchmarkCSRPthreads(csr, x, threads);
-                
+
+                double perc_90
                 double speedup = csr_seq.percentile_90 / omp_static.percentile_90;
                 
                 printf("%-12d", threads);

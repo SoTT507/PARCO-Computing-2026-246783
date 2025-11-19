@@ -20,6 +20,7 @@ if [ ! -d "fl2010" ]; then
   gzip -d fl2010.tar.gz
   tar -xf fl2010.tar
   ls fl2010/fl2010.mxt
+fi
 
 if [ ! -d "circuit5M" ]; then
 wget https://suitesparse-collection-website.herokuapp.com/MM/Freescale/circuit5M.tar.gz

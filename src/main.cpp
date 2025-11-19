@@ -1,5 +1,6 @@
 #include "s_matrix.hpp"
 #include "benchmark.hpp"
+#include <iostream>
 
 int main() {
     SparseMatrixBenchmark benchmark;
