@@ -2,4 +2,6 @@ d1_SpMV
 /build/
 /thirdparty/*
 !/thirdparty/getmatrices.sh
+/plots/
+!/plots/plot.py
 
