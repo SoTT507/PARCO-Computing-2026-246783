@@ -219,7 +219,6 @@ void SparseMatrixBenchmark::runFullBenchmark() {
                 auto omp_guided = benchmarkCSROMPGuided(csr, x, threads);
                 auto pthreads = benchmarkCSRPthreads(csr, x, threads);
 
-                double perc_90
                 double speedup = csr_seq.percentile_90 / omp_static.percentile_90;
                 
                 printf("%-12d", threads);
