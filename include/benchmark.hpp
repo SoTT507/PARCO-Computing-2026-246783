@@ -38,8 +38,6 @@ public:
     void writeBenchmarkResult(const std::string& filename, const std::string& matrix_name,
                             const std::string& format, int threads, const std::string& schedule,
                             const BenchmarkResult& result, double speedup = 0.0, double efficiency = 0.0);
-    void writeDetailedResults(const std::string& matrix_name, const COOMatrix& coo, const CSRMatrix& csr);
-
     void warmup();
 
     // Utility methods
