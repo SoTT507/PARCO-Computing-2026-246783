@@ -4,4 +4,5 @@ d1_SpMV
 !/thirdparty/getmatrices.sh
 /plots/
 !/plots/plot.py
+compile_commands.json
 
