@@ -40,6 +40,8 @@ public:
                             const BenchmarkResult& result, double speedup = 0.0, double efficiency = 0.0);
     void writeDetailedResults(const std::string& matrix_name, const COOMatrix& coo, const CSRMatrix& csr);
 
+    void warmup();
+
     // Utility methods
     static std::vector<double> generateRandomVector(int size);
     static std::vector<double> generateOnesVector(int size);

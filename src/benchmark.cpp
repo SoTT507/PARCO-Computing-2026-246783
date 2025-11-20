@@ -335,3 +335,27 @@ void SparseMatrixBenchmark::runFullBenchmark() {
     std::cout << "All benchmark results saved to: " << output_dir << "/\n";
     std::cout << "Use 'python3 ./plots/plot.py' to generate graphs.\n";
 }
+
+void SparseMatrixBenchmark::warmup() {
+    for (const auto& file : matrix_files) {
+        try {
+            COOMatrix coo(file);
+            CSRMatrix csr(coo);
+
+            std::vector<double> x = generateOnesVector(csr.cols);
+
+            // Sequential benchmarks
+            auto coo_seq = benchmarkCOOSequential(coo, x);
+            auto csr_seq = benchmarkCSRSequential(csr, x);
+
+            for (int threads : thread_counts) {
+                auto omp_static = benchmarkCSROMPStatic(csr, x, threads);
+                auto omp_dynamic = benchmarkCSROMPDynamic(csr, x, threads);
+                auto omp_guided = benchmarkCSROMPGuided(csr, x, threads);
+                auto pthreads = benchmarkCSRPthreads(csr, x, threads);
+            }
+        } catch (const std::exception& e) {
+            std::cout << "Error processing " << file << ": " << e.what() << "\n\n";
+        }
+    }
+}
