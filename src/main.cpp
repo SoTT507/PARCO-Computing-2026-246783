@@ -9,12 +9,13 @@ int main() {
     benchmark.addMatrixFile("thirdparty/fl2010/fl2010.mtx");
     benchmark.addMatrixFile("thirdparty/F1/F1.mtx");
     benchmark.addMatrixFile("thirdparty/circuit5M/circuit5M.mtx");
+    benchmark.addMatrixFile("thirdparty/FullChip/FullChip.mtx");
     //
     //
     //Considering a piece of code to run warmup directly from program
     //instead of running the program multiple times as of now
     //
-    for(int i = 0; i<=5; i++){
+    for(int i = 0; i<5; i++){
       benchmark.warmup(); //same as runFullBenchmark but does not save nor print results
       std::cout<< "Warmup run: " << i << std::endl;
     }

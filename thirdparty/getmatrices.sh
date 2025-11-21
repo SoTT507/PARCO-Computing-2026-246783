@@ -28,3 +28,10 @@ gzip -d circuit5M.tar.gz
 tar -xf circuit5M.tar
 ls circuit5M/circuit5M.mtx
 fi
+
+if [ ! -d "FullChip" ]; then
+    wget https://suitesparse-collection-website.herokuapp.com/MM/Freescale/FullChip.tar.gz
+    gzip -d FullChip.tar.gz
+    tar -xf FullChip.tar
+    ls FullChip/FullChip.mtx
+fi

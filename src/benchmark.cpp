@@ -214,27 +214,26 @@ void SparseMatrixBenchmark::setOutputDirectory(const std::string& dir) {
 
 void SparseMatrixBenchmark::runFullBenchmark() {
     std::cout << "--> Sparse Matrix-Vector Multiplication Benchmark <--\n\n";
-
-    std::string base_name = matrix_name;
-    /* ====== IMPORTANT ======= */
-    // Remove path and extension for clean filename
-    size_t last_slash = base_name.find_last_of("/\\");
-    if (last_slash != std::string::npos) {
-        base_name = base_name.substr(last_slash + 1);
-    }
-    size_t last_dot = base_name.find_last_of(".");
-    if (last_dot != std::string::npos) {
-        base_name = base_name.substr(0, last_dot);
-    }
-
-    std::string csv_file = output_dir + "/" + base_name + "_results.csv";
-    writeBenchmarkHeader(csv_file);
     // Create output directory
     std::filesystem::create_directories(output_dir);
 
     for (const auto& file : matrix_files) {
         std::cout << "Testing matrix: " << file << "\n";
         std::cout << "=============================================\n";
+
+        std::string base_name = file;
+        /* ====== IMPORTANT ======= */
+        // Remove path and extension for clean filename
+        size_t last_slash = base_name.find_last_of("/\\");
+        if (last_slash != std::string::npos) {
+            base_name = base_name.substr(last_slash + 1);
+        }
+        size_t last_dot = base_name.find_last_of(".");
+        if (last_dot != std::string::npos) {
+            base_name = base_name.substr(0, last_dot);
+        }
+        std::string csv_file = output_dir + "/" + base_name + "_results.csv";
+        writeBenchmarkHeader(csv_file);
 
         try {
             COOMatrix coo(file);
@@ -256,13 +255,15 @@ void SparseMatrixBenchmark::runFullBenchmark() {
             std::cout << "Speedup CSR vs COO: " << coo_seq.percentile_90 / csr_seq.percentile_90 << "x\n\n";
 
             // Parallel benchmarks
-            printf("Parallel Results (90th percentile in ms):\n");
-            printf("%-12s", "Threads");
-            printf("%-15s", "OMP Static");
-            printf("%-15s", "OMP Dynamic");
-            printf("%-15s", "OMP Guided");
-            printf("%-15s", "Pthreads");
-            printf("%-15s\n", "Speedup");
+            std::cout << "Parallel Results (90th percentile in ms):\n\n";
+
+            std::cout << std::left
+                << std::setw(10) << "Threads"
+                << std::setw(15) << "OMP Static"
+                << std::setw(15) << "OMP Dynamic"
+                << std::setw(15) << "OMP Guided"
+                << std::setw(15) << "Pthreads"
+                << "\n";
 
             for (int threads : thread_counts) {
                 auto omp_static = benchmarkCSROMPStatic(csr, x, threads);
@@ -291,12 +292,13 @@ void SparseMatrixBenchmark::runFullBenchmark() {
                 writeBenchmarkResult(csv_file, base_name, "CSR", threads, "pthreads",
                                    pthreads, pthread_speedup, pthread_efficiency);
 
-                printf("%-12d", threads);
-                printf("%-15.3f", omp_static.percentile_90);
-                printf("%-15.3f", omp_dynamic.percentile_90);
-                printf("%-15.3f", omp_guided.percentile_90);
-                printf("%-15.3f", pthreads.percentile_90);
-                printf("%-15.3f\n", speedup);
+                std::cout << std::left
+                        << std::setw(10) << threads
+                        << std::setw(15) << std::fixed << std::setprecision(3) << omp_static.percentile_90
+                        << std::setw(15) << omp_dynamic.percentile_90
+                        << std::setw(15) << omp_guided.percentile_90
+                        << std::setw(15) << pthreads.percentile_90
+                        << "\n";
             }
             std::cout << "\n";
 
