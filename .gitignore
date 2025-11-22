@@ -2,7 +2,7 @@ d1_SpMV
 /build/
 /thirdparty/*
 !/thirdparty/getmatrices.sh
-!/thirdparty/mmio/*
+!/thirdparty/mmio
 /plots/*
 !/plots/plot.py
 compile_commands.json
