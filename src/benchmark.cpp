@@ -20,7 +20,7 @@ void BenchmarkResult::calculate(const std::vector<double>& times) {
 BenchmarkResult SparseMatrixBenchmark::benchmarkCOOSequential(
     const COOMatrix& coo, const std::vector<double>& x, int runs) {
 
-    std::vector<double> y(coo.rows);
+    std::vector<double> y(coo.rows,0.0);
     std::vector<double> times;
     times.reserve(runs);
 
@@ -46,7 +46,7 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCOOSequential(
 BenchmarkResult SparseMatrixBenchmark::benchmarkCSRSequential(
     const CSRMatrix& csr, const std::vector<double>& x, int runs) {
 
-    std::vector<double> y(csr.rows);
+    std::vector<double> y(csr.rows, 0.0);
     std::vector<double> times;
     times.reserve(runs);
 
@@ -68,7 +68,7 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCSRSequential(
 BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPStatic(
     const CSRMatrix& csr, const std::vector<double>& x, int num_threads, int runs) {
 
-    std::vector<double> y(csr.rows);
+    std::vector<double> y(csr.rows, 0.0);
     std::vector<double> times;
     times.reserve(runs);
 
@@ -99,7 +99,7 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPDynamic(
     const CSRMatrix& csr, const std::vector<double>& x, int num_threads, int runs) {
     
     
-    std::vector<double> y(csr.rows);
+    std::vector<double> y(csr.rows, 0.0);
     std::vector<double> times;
     times.reserve(runs);
 
@@ -129,7 +129,7 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPDynamic(
 BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPGuided(
     const CSRMatrix& csr, const std::vector<double>& x, int num_threads, int runs) {
 
-    std::vector<double> y(csr.rows);
+    std::vector<double> y(csr.rows,0.0);
     std::vector<double> times;
     times.reserve(runs);
 
