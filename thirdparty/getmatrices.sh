@@ -1,15 +1,5 @@
 #!/bin/bash
 
-if [ ! -d "bcsstk36" ]; then
-  echo "Downloading bcsstk36..."
-  wget https://suitesparse-collection-website.herokuapp.com/MM/Boeing/bcsstk36.tar.gz
-  tar -xzf bcsstk36.tar.gz
-  rm bcsstk36.tar.gz
-  ls bcsstk36/bcsstk36.mtx
-else
-  echo "bcsstk36 already exists"
-fi
-
 if [ ! -d "F1" ]; then
   echo "Downloading F1..."
   wget https://suitesparse-collection-website.herokuapp.com/MM/Koutsovasilis/F1.tar.gz
@@ -20,43 +10,43 @@ else
   echo "F1 already exists"
 fi
 
-if [ ! -d "bcsstk30" ]; then
-  echo "Downloading bcsstk30..."
-  wget https://suitesparse-collection-website.herokuapp.com/MM/HB/bcsstk30.tar.gz
-  tar -xzf bcsstk30.tar.gz
-  rm bcsstk30.tar.gz
-  ls bcsstk30/bcsstk30.mtx
+if [ ! -d "Circuit5M" ]; then
+  echo "Downloading Circuit5M..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/GHS_psdef/Circuit5M.tar.gz
+  tar -xzf Circuit5M.tar.gz
+  rm Circuit5M.tar.gz
+  ls Circuit5M/Circuit5M.mtx
 else
-  echo "bcsstk30 already exists"
+  echo "Circuit5M already exists"
 fi
 
-if [ ! -d "af23560" ]; then
-  echo "Downloading af23560..."
-  wget https://suitesparse-collection-website.herokuapp.com/MM/Bai/af23560.tar.gz
-  tar -xzf af23560.tar.gz
-  rm af23560.tar.gz
-  ls af23560/af23560.mtx
+if [ ! -d "kron_g500-logn21" ]; then
+  echo "Downloading kron_g500-logn21..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/DIMACS10/kron_g500-logn21.tar.gz
+  tar -xzf kron_g500-logn21.tar.gz
+  rm kron_g500-logn21.tar.gz
+  ls kron_g500-logn21/kron_g500-logn21.mtx
 else
-  echo "af23560 already exists"
+  echo "kron_g500-logn21 already exists"
 fi
 
-if [ ! -d "bcsstk25" ]; then
-  echo "Downloading bcsstk25..."
-  wget https://suitesparse-collection-website.herokuapp.com/MM/HB/bcsstk25.tar.gz
-  tar -xzf bcsstk25.tar.gz
-  rm bcsstk25.tar.gz
-  ls bcsstk25/bcsstk25.mtx
+if [ ! -d "kron_g500-logn19" ]; then
+  echo "Downloading kron_g500-logn19..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/DIMACS10/kron_g500-logn19.tar.gz
+  tar -xzf kron_g500-logn19.tar.gz
+  rm kron_g500-logn19.tar.gz
+  ls kron_g500-logn19/kron_g500-logn19.mtx
 else
-  echo "bcsstk25 already exists"
+  echo "kron_g500-logn19 already exists"
 fi
 
-if [ ! -d "rdb968" ]; then
-  echo "Downloading rdb968..."
-  wget https://suitesparse-collection-website.herokuapp.com/MM/Bai/rdb968.tar.gz
-  tar -xzf rdb968.tar.gz
-  rm rdb968.tar.gz
-  ls rdb968/rdb968.mtx
+if [ ! -d "audikw_1" ]; then
+  echo "Downloading audikw_1..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/Pothen/audikw_1.tar.gz
+  tar -xzf audikw_1.tar.gz
+  rm audikw_1.tar.gz
+  ls audikw_1/audikw_1.mtx
 else
-  echo "rdb968 already exists"
+  echo "audikw_1 already exists"
 fi
 

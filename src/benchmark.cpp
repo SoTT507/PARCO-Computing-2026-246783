@@ -1,8 +1,9 @@
 #include "benchmark.hpp"
+#include <omp.h>
 
 SparseMatrixBenchmark::SparseMatrixBenchmark() {
     // Default thread counts
-    thread_counts = {1, 2, 4, 8, 16, 32, 64, 128};
+    thread_counts = {1, 2, 4, 8, 16};
     // Create output directory
     std::filesystem::create_directories(output_dir);
 }
@@ -99,17 +100,17 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPStatic(
 
     for (int run = 0; run < runs; run++) {
         auto start = std::chrono::high_resolution_clock::now();
-
-        // OpenMP static scheduling
-        #pragma omp parallel for schedule(static) num_threads(num_threads)
-        for (int i = 0; i < csr.rows; i++) {
-            double sum = 0.0;
-            for (int j = csr.row_ptr[i]; j < csr.row_ptr[i + 1]; j++) {
-                sum += csr.values[j] * x[csr.col_idx[j]];
-            }
-            y[i] = sum;
+        #pragma omp parallel num_threads(num_threads)
+        {
+          #pragma omp for schedule(static)
+          for (int i = 0; i < csr.rows; i++) {
+              double sum = 0.0;
+              for (int j = csr.row_ptr[i]; j < csr.row_ptr[i + 1]; j++) {
+                  sum += csr.values[j] * x[csr.col_idx[j]];
+              }
+              y[i] = sum;
+          }
         }
-
         auto end = std::chrono::high_resolution_clock::now();
         double duration = std::chrono::duration<double, std::milli>(end - start).count();
         times.push_back(duration);
@@ -133,15 +134,17 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPDynamic(
         auto start = std::chrono::high_resolution_clock::now();
 
         // OpenMP dynamic scheduling
-        #pragma omp parallel for schedule(dynamic) num_threads(num_threads)
-        for (int i = 0; i < csr.rows; i++) {
-            double sum = 0.0;
-            for (int j = csr.row_ptr[i]; j < csr.row_ptr[i + 1]; j++) {
-                sum += csr.values[j] * x[csr.col_idx[j]];
-            }
-            y[i] = sum;
+        #pragma omp parallel num_threads(num_threads)
+        {
+          #pragma omp for schedule(dynamic) 
+          for (int i = 0; i < csr.rows; i++) {
+              double sum = 0.0;
+              for (int j = csr.row_ptr[i]; j < csr.row_ptr[i + 1]; j++) {
+                  sum += csr.values[j] * x[csr.col_idx[j]];
+              }
+             y[i] = sum;
+          }
         }
-
         auto end = std::chrono::high_resolution_clock::now();
         double duration = std::chrono::duration<double, std::milli>(end - start).count();
         times.push_back(duration);
@@ -164,14 +167,18 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPGuided(
     for (int run = 0; run < runs; run++) {
         auto start = std::chrono::high_resolution_clock::now();
 
-        // OpenMP guided scheduling
-        #pragma omp parallel for schedule(guided) num_threads(num_threads)
-        for (int i = 0; i < csr.rows; i++) {
-            double sum = 0.0;
-            for (int j = csr.row_ptr[i]; j < csr.row_ptr[i + 1]; j++) {
-                sum += csr.values[j] * x[csr.col_idx[j]];
-            }
-            y[i] = sum;
+        
+        #pragma omp parallel num_threads(num_threads)
+        {
+
+          #pragma omp for schedule(guided)
+          for (int i = 0; i < csr.rows; i++) {
+              double sum = 0.0;
+              for (int j = csr.row_ptr[i]; j < csr.row_ptr[i + 1]; j++) {
+                  sum += csr.values[j] * x[csr.col_idx[j]];
+              }
+              y[i] = sum;
+          }
         }
 
         auto end = std::chrono::high_resolution_clock::now();

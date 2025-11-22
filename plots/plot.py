@@ -21,57 +21,71 @@ def load_results():
     return pd.concat(all_data, ignore_index=True)
 
 def plot_90th_percentile(df):
-    """Simple 90th percentile comparison"""
+    """Simple 90th percentile comparison - Two separate graphs"""
+    
     # Get parallel results only
     parallel_df = df[df['schedule'].str.startswith('omp_')]
     
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    # GRAPH 1: Execution times
+    plt.figure(figsize=(12, 6))
     
-    # Plot 1: Execution times
     for matrix in parallel_df['matrix'].unique():
         matrix_data = parallel_df[parallel_df['matrix'] == matrix]
         avg_times = matrix_data.groupby('threads')['percentile_90'].mean()
-        ax1.plot(avg_times.index, avg_times.values, 'o-', label=matrix, markersize=4)
+        plt.plot(avg_times.index, avg_times.values, 'o-', label=matrix, markersize=6, linewidth=2)
     
-    ax1.set_xlabel('Threads')
-    ax1.set_ylabel('Time (ms)')
-    ax1.set_title('90th Percentile Execution Time')
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
+    plt.xlabel('Threads')
+    plt.ylabel('Time (ms)')
+    plt.title('90th Percentile Execution Time - All Parallel Schedules')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.xticks(sorted(parallel_df['threads'].unique()))
     
-    # Plot 2: Speedup - FIXED VERSION
-    # Get sequential times as a dictionary
+    plt.tight_layout()
+    plt.savefig('execution_times.png', dpi=150, bbox_inches='tight')
+    plt.show()
+    
+    # GRAPH 2: Speedup comparison
+    plt.figure(figsize=(12, 6))
+    
+    # Get OMP Guided results
+    guided_df = df[df['schedule'] == 'omp_guided']
+    
+    # Get sequential times
     seq_times_dict = {}
     for matrix in df['matrix'].unique():
         seq_data = df[(df['matrix'] == matrix) & (df['schedule'] == 'sequential')]
         if not seq_data.empty:
             seq_times_dict[matrix] = seq_data['percentile_90'].iloc[0]
     
-    for matrix in parallel_df['matrix'].unique():
-        matrix_data = parallel_df[parallel_df['matrix'] == matrix]
-        seq_time = seq_times_dict.get(matrix)  # Now it's a single value or None
+    # Plot speedup for each matrix
+    for matrix in guided_df['matrix'].unique():
+        matrix_data = guided_df[guided_df['matrix'] == matrix]
+        seq_time = seq_times_dict.get(matrix)
         
-        if seq_time is not None:  # FIX: Check if not None instead of truthiness
-            avg_times = matrix_data.groupby('threads')['percentile_90'].mean()
-            speedup = seq_time / avg_times
-            ax2.plot(speedup.index, speedup.values, 's-', label=matrix, markersize=4)
+        if seq_time is not None:
+            speedup = seq_time / matrix_data['percentile_90']
+            plt.plot(matrix_data['threads'], speedup, 's-', label=matrix, markersize=8, linewidth=2)
     
     # Ideal speedup line
-    threads = sorted(parallel_df['threads'].unique())
-    ax2.plot(threads, threads, 'k--', label='Ideal', alpha=0.5)
+    threads = sorted(guided_df['threads'].unique())
+    plt.plot(threads, threads, 'k--', label='Ideal Speedup', alpha=0.5, linewidth=2)
     
-    ax2.set_xlabel('Threads')
-    ax2.set_ylabel('Speedup')
-    ax2.set_title('Speedup vs Sequential')
-    ax2.legend()
-    ax2.grid(True, alpha=0.3)
-    
+    plt.xlabel('Number of Threads')
+    plt.ylabel('Speedup (vs Sequential)')
+    plt.title('Speedup Improvement - OMP Guided vs Sequential\n(Higher is Better)')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.xticks(threads)
+
     plt.tight_layout()
-    plt.savefig('90th_percentile.png', dpi=150, bbox_inches='tight')
+    plt.savefig('speedup_comparison.png', dpi=150, bbox_inches='tight')
     plt.show()
 
 if __name__ == "__main__":
     df = load_results()
     if df is not None:
         plot_90th_percentile(df)
-        print("90th percentile plot saved as '90th_percentile.png'")
+        print("Two separate graphs saved:")
+        print("- 'execution_times.png' - Execution time comparison")
+        print("- 'speedup_comparison.png' - Speedup comparison")
