@@ -29,6 +29,9 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+mv ./d1_SpMV ../
+mv ./libmmio.a ../
+
 cd ..
 
 cd thirdparty

@@ -12,7 +12,7 @@ public:
     COOMatrix(int r, int c) : rows(r), cols(c), nnz(0) {}
     COOMatrix(const std::string& filename) { readMatrixMarket(filename); }
     
-    void readMatrixMarket(const std::string& filename);
+    void readMatrixMarket(const std::string& filename,bool keep_1_based = false);
     void addEntry(int i, int j, double val);
     void generateRandomSparse(int n, double sparsity);
 };

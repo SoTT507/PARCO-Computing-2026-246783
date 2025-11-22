@@ -1,35 +1,74 @@
 #include "s_matrix.hpp"
-
-void COOMatrix::readMatrixMarket(const std::string& filename) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
+#include "mmio.h"
+void COOMatrix::readMatrixMarket(const std::string& filename, bool keep_1_based) {
+  FILE* f = fopen(filename.c_str(), "r");
+    if (!f)
         throw std::runtime_error("Cannot open file: " + filename);
-    }
-    
-    std::string line;
-    // Skip comments
-    while (std::getline(file, line)) {
-        if (line[0] != '%') break;
-    }
-    
-    // Read matrix dimensions
-    std::istringstream iss(line);
-    iss >> rows >> cols >> nnz;
+
+    MM_typecode matcode;
+
+    if (mm_read_banner(f, &matcode) != 0)
+        throw std::runtime_error("Could not process MatrixMarket banner in: " + filename);
+
+    if (!mm_is_matrix(matcode) || !mm_is_sparse(matcode))
+        throw std::runtime_error("Only sparse MatrixMarket matrices are supported: " + filename);
+
+    // Size
+    if (mm_read_mtx_crd_size(f, &rows, &cols, &nnz) != 0)
+        throw std::runtime_error("Could not read matrix dimensions: " + filename);
+
+    // Allocate
     row_idx.resize(nnz);
     col_idx.resize(nnz);
     values.resize(nnz);
-    
-    // Read non-zero entries
-    for (int i = 0; i < nnz; i++) {
-        int row, col;
-        double value;
-        file >> row >> col >> value;
-        row_idx[i] = row - 1;  // Convert to 0-based
-        col_idx[i] = col - 1;
-        values[i] = value;
+
+    bool is_pattern  = mm_is_pattern(matcode);
+    bool is_real     = mm_is_real(matcode) || mm_is_integer(matcode);
+    bool is_symmetric = mm_is_symmetric(matcode);
+
+    int r, c;
+    double v;
+
+    int k = 0;
+
+    // --- Read COO triplets ---
+    for (int i = 0; i < nnz; i++)
+    {
+        if (is_pattern) {
+            // FORMAT: i j
+            if (fscanf(f, "%d %d", &r, &c) != 2)
+                throw std::runtime_error("Invalid pattern entry in: " + filename);
+            v = 1.0;
+        } else {
+            // FORMAT: i j val
+            if (fscanf(f, "%d %d %lf", &r, &c, &v) != 3)
+                throw std::runtime_error("Invalid numeric entry in: " + filename);
+        }
+
+        if (!keep_1_based) { r--; c--; }
+
+        row_idx[k] = r;
+        col_idx[k] = c;
+        values[k]  = v;
+        k++;
+
+        // For symmetric matrices: duplicate lower triangle automatically
+        if (is_symmetric && r != c)
+        {
+            int rr = r, cc = c;
+            if (!keep_1_based) std::swap(rr, cc);
+            else std::swap(r, c);
+
+            row_idx.push_back(c);
+            col_idx.push_back(r);
+            values.push_back(v);
+        }
     }
-    
-    file.close();
+
+    fclose(f);
+
+    // If symmetric expanded, update nnz
+    nnz = row_idx.size();
 }
 
 void COOMatrix::addEntry(int i, int j, double val) {

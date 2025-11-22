@@ -9,8 +9,8 @@ int main() {
 
 
     benchmark.addMatrixFile("thirdparty/F1/F1.mtx");                 //~??k rows (depends on F1)
-    benchmark.addMatrixFile("thirdparty/mycielskian19/mycielskian19.mtx");   //~5M rows (large)
-    benchmark.addMatrixFile("thirdparty/dielFilterV3clx/dielFilterV3clx.mtx"); //~2^21 ≈ 2M rows
+    benchmark.addMatrixFile("thirdparty/af_shell7/af_shell7.mtx");   //~5M rows (large)
+    benchmark.addMatrixFile("thirdparty/mario002/mario002.mtx"); //~2^21 ≈ 2M rows
     benchmark.addMatrixFile("thirdparty/kron_g500-logn19/kron_g500-logn19.mtx"); //~2^19 ≈ 524k rows
     benchmark.addMatrixFile("thirdparty/msdoor/msdoor.mtx");     //~944k rows
 

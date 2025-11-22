@@ -10,24 +10,24 @@ else
   echo "F1 already exists"
 fi
 
-if [ ! -d "mycielskian19" ]; then
-  echo "Downloading mycielskian19..."
-  wget https://suitesparse-collection-website.herokuapp.com/MM/Mycielski/mycielskian19.tar.gz
-  tar -xzf mycielskian19.tar.gz
-  rm mycielskian19.tar.gz
-  ls mycielskian19/mycielskian19.mtx
+if [ ! -d "af_shell7" ]; then
+  echo "Downloading af_shell7..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/Schenk_AFE/af_shell7.tar.gz
+  tar -xzf af_shell7.tar.gz
+  rm af_shell7.tar.gz
+  ls af_shell7/af_shell7.mtx
 else
-  echo "Circuit5M already exists"
+  echo "af_shell7 already exists"
 fi
 
-if [ ! -d "dielFilterV3clx" ]; then
+if [ ! -d "mario002" ]; then
   echo "Downloading kron_g500-logn21..."
-  wget https://suitesparse-collection-website.herokuapp.com/MM/Dziekonski/dielFilterV3clx.tar.gz
-  tar -xzf dielFilterV3clx.tar.gz
-  rm dielFilterV3clx.tar.gz
-  ls dielFilterV3clx/dielFilterV3clx.mtx
+  wget https://suitesparse-collection-website.herokuapp.com/MM/GHS_indef/mario002.tar.gz
+  tar -xzf mario002.tar.gz
+  rm mario002.tar.gz
+  ls mario002/mario002.mtx
 else
-  echo "kron_g500-logn21 already exists"
+  echo "dielFilterV3clx already exists"
 fi
 
 if [ ! -d "kron_g500-logn19" ]; then
@@ -47,7 +47,7 @@ if [ ! -d "msdoor" ]; then
   rm msdoor.tar.gz
   ls msdoor/msdoor.mtx
 else
-  echo "audikw_1 already exists"
+  echo "msdoor"
 fi
 
 # volendo auto

@@ -21,9 +21,6 @@ def load_results():
     return pd.concat(all_data, ignore_index=True)
 
 def plot_90th_percentile(df):
-    """Simple 90th percentile comparison - Two separate graphs"""
-    
-    # Get parallel results only
     parallel_df = df[df['schedule'].str.startswith('omp_')]
     
     # GRAPH 1: Execution times
@@ -51,14 +48,12 @@ def plot_90th_percentile(df):
     # Get OMP Guided results
     guided_df = df[df['schedule'] == 'omp_guided']
     
-    # Get sequential times
     seq_times_dict = {}
     for matrix in df['matrix'].unique():
         seq_data = df[(df['matrix'] == matrix) & (df['schedule'] == 'sequential')]
         if not seq_data.empty:
             seq_times_dict[matrix] = seq_data['percentile_90'].iloc[0]
     
-    # Plot speedup for each matrix
     for matrix in guided_df['matrix'].unique():
         matrix_data = guided_df[guided_df['matrix'] == matrix]
         seq_time = seq_times_dict.get(matrix)
