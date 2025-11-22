@@ -20,6 +20,16 @@ else
   echo "F1 already exists"
 fi
 
+if [ ! -d "bcsstk30" ]; then
+  echo "Downloading bcsstk30..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/HB/bcsstk30.tar.gz
+  tar -xzf bcsstk30.tar.gz
+  rm bcsstk30.tar.gz
+  ls bcsstk30/bcsstk30.mtx
+else
+  echo "bcsstk30 already exists"
+fi
+
 if [ ! -d "af23560" ]; then
   echo "Downloading af23560..."
   wget https://suitesparse-collection-website.herokuapp.com/MM/Bai/af23560.tar.gz

@@ -6,7 +6,7 @@ int main() {
     SparseMatrixBenchmark benchmark;
     // Add matrices with different sparsity patterns
     benchmark.addMatrixFile("thirdparty/bcsstk36/bcsstk36.mtx"); //~23k rows
-    benchmark.addMatrixFile("thirdparty/F1/F1.mtx");//~34k rows
+    benchmark.addMatrixFile("thirdparty/bcsstk30/bcsstk30.mtx");//~34k rows
     benchmark.addMatrixFile("thirdparty/rdb968/rdb968.mtx");//~5k --> LOW sparsity
     benchmark.addMatrixFile("thirdparty/bcsstk25/bcsstk25.mtx");
     benchmark.addMatrixFile("thirdparty/af23560/af23560.mtx");

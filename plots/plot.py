@@ -3,63 +3,75 @@ import matplotlib.pyplot as plt
 import glob
 import os
 
-csv_files = glob.glob("./*_results.csv")
-if not csv_files:
-    print("No CSV files found. Run benchmark first.")
-    exit()
+# Simple setup
+plt.rcParams['figure.figsize'] = (12, 6)
 
-os.makedirs("./graphs", exist_ok=True)
-
-all_data = []
-for file in csv_files:
-    df = pd.read_csv(file)
-    all_data.append(df)
-
-df = pd.concat(all_data, ignore_index=True)
-
-print(f"Loaded {len(df)} measurements from {df['matrix'].nunique()} matrices")
-
-for matrix in df['matrix'].unique():
-    matrix_data = df[df['matrix'] == matrix]
-    csr_data = matrix_data[matrix_data['format'] == 'CSR']
+def load_results():
+    """Load all CSV files"""
+    csv_files = glob.glob("*_results.csv")
+    if not csv_files:
+        print("No CSV files found! Run benchmark first.")
+        return None
     
-    plt.figure(figsize=(10, 5))
+    all_data = []
+    for file in csv_files:
+        df = pd.read_csv(file)
+        all_data.append(df)
     
-    # Plot execution time
-    for schedule in csr_data['schedule'].unique():
-        sched_data = csr_data[csr_data['schedule'] == schedule]
-        if not sched_data.empty:
-            plt.plot(sched_data['threads'], sched_data['percentile_90'], 'o-', label=schedule)
-    
-    plt.xlabel('Threads')
-    plt.ylabel('Time (ms)')
-    plt.title(f'{matrix} - Performance')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.savefig(f'benchmarks/plots/{matrix}_plot.png', bbox_inches='tight')
-    plt.close()
-    
-    print(f"Saved: {matrix}_plot.png")
+    return pd.concat(all_data, ignore_index=True)
 
-plt.figure(figsize=(12, 6))
-for matrix in df['matrix'].unique():
-    matrix_data = df[df['matrix'] == matrix]
-    csr_data = matrix_data[matrix_data['format'] == 'CSR']
+def plot_90th_percentile(df):
+    """Simple 90th percentile comparison"""
+    # Get parallel results only
+    parallel_df = df[df['schedule'].str.startswith('omp_')]
     
-    # Get best performance (static schedule, max threads)
-    best_data = csr_data[(csr_data['schedule'] == 'omp_static') & 
-                         (csr_data['threads'] == csr_data['threads'].max())]
-    if not best_data.empty:
-        plt.bar(matrix, best_data['percentile_90'].iloc[0], alpha=0.7, label=matrix)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    
+    # Plot 1: Execution times
+    for matrix in parallel_df['matrix'].unique():
+        matrix_data = parallel_df[parallel_df['matrix'] == matrix]
+        avg_times = matrix_data.groupby('threads')['percentile_90'].mean()
+        ax1.plot(avg_times.index, avg_times.values, 'o-', label=matrix, markersize=4)
+    
+    ax1.set_xlabel('Threads')
+    ax1.set_ylabel('Time (ms)')
+    ax1.set_title('90th Percentile Execution Time')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+    
+    # Plot 2: Speedup - FIXED VERSION
+    # Get sequential times as a dictionary
+    seq_times_dict = {}
+    for matrix in df['matrix'].unique():
+        seq_data = df[(df['matrix'] == matrix) & (df['schedule'] == 'sequential')]
+        if not seq_data.empty:
+            seq_times_dict[matrix] = seq_data['percentile_90'].iloc[0]
+    
+    for matrix in parallel_df['matrix'].unique():
+        matrix_data = parallel_df[parallel_df['matrix'] == matrix]
+        seq_time = seq_times_dict.get(matrix)  # Now it's a single value or None
+        
+        if seq_time is not None:  # FIX: Check if not None instead of truthiness
+            avg_times = matrix_data.groupby('threads')['percentile_90'].mean()
+            speedup = seq_time / avg_times
+            ax2.plot(speedup.index, speedup.values, 's-', label=matrix, markersize=4)
+    
+    # Ideal speedup line
+    threads = sorted(parallel_df['threads'].unique())
+    ax2.plot(threads, threads, 'k--', label='Ideal', alpha=0.5)
+    
+    ax2.set_xlabel('Threads')
+    ax2.set_ylabel('Speedup')
+    ax2.set_title('Speedup vs Sequential')
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig('90th_percentile.png', dpi=150, bbox_inches='tight')
+    plt.show()
 
-plt.xlabel('Matrix')
-plt.ylabel('Best Time (ms)')
-plt.title('Performance Comparison')
-plt.xticks(rotation=45)
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.savefig('benchmarks/plots/comparison.png', bbox_inches='tight')
-plt.close()
-
-print("Saved: comparison.png")
-print("Done! Check benchmarks/plots/ directory")
+if __name__ == "__main__":
+    df = load_results()
+    if df is not None:
+        plot_90th_percentile(df)
+        print("90th percentile plot saved as '90th_percentile.png'")

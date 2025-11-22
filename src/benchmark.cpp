@@ -13,6 +13,7 @@ void BenchmarkResult::calculate(const std::vector<double>& times) {
 
     // 90th percentile
     size_t index = static_cast<size_t>(std::ceil(0.9 * times.size())) - 1;
+    if (index >= sorted_times.size()) index = sorted_times.size() - 1;
     percentile_90 = sorted_times[index];
 }
 
@@ -21,6 +22,7 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCOOSequential(
 
     std::vector<double> y(coo.rows);
     std::vector<double> times;
+    times.reserve(runs);
 
     for (int run = 0; run < runs; run++) {
         auto start = std::chrono::high_resolution_clock::now();
@@ -46,6 +48,7 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCSRSequential(
 
     std::vector<double> y(csr.rows);
     std::vector<double> times;
+    times.reserve(runs);
 
     for (int run = 0; run < runs; run++) {
         auto start = std::chrono::high_resolution_clock::now();
@@ -67,6 +70,7 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPStatic(
 
     std::vector<double> y(csr.rows);
     std::vector<double> times;
+    times.reserve(runs);
 
     for (int run = 0; run < runs; run++) {
         auto start = std::chrono::high_resolution_clock::now();
@@ -93,9 +97,11 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPStatic(
 
 BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPDynamic(
     const CSRMatrix& csr, const std::vector<double>& x, int num_threads, int runs) {
-
+    
+    
     std::vector<double> y(csr.rows);
     std::vector<double> times;
+    times.reserve(runs);
 
     for (int run = 0; run < runs; run++) {
         auto start = std::chrono::high_resolution_clock::now();
@@ -125,6 +131,7 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPGuided(
 
     std::vector<double> y(csr.rows);
     std::vector<double> times;
+    times.reserve(runs);
 
     for (int run = 0; run < runs; run++) {
         auto start = std::chrono::high_resolution_clock::now();
@@ -194,7 +201,7 @@ std::vector<double> SparseMatrixBenchmark::generateOnesVector(int size) {
 
 SparseMatrixBenchmark::SparseMatrixBenchmark() {
     // Default thread counts
-    thread_counts = {1, 2, 4, 8, 16, 32, 64};
+    thread_counts = {1, 2, 4, 8, 16, 32, 64, 128};
     // Create output directory
     std::filesystem::create_directories(output_dir);
 }
@@ -327,7 +334,6 @@ void SparseMatrixBenchmark::warmup() {
                 auto omp_static = benchmarkCSROMPStatic(csr, x, threads);
                 auto omp_dynamic = benchmarkCSROMPDynamic(csr, x, threads);
                 auto omp_guided = benchmarkCSROMPGuided(csr, x, threads);
-                auto pthreads = benchmarkCSRPthreads(csr, x, threads);
             }
         } catch (const std::exception& e) {
             std::cout << "Error processing " << file << ": " << e.what() << "\n\n";
