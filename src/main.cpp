@@ -9,7 +9,7 @@ int main() {
 
 
     benchmark.addMatrixFile("thirdparty/F1/F1.mtx");                 //~??k rows (depends on F1)
-    benchmark.addMatrixFile("thirdparty/Circuit5M/Circuit5M.mtx");   //~5M rows (large)
+    benchmark.addMatrixFile("thirdparty/circuit5M/circuit5M.mtx");   //~5M rows (large)
     benchmark.addMatrixFile("thirdparty/kron_g500-logn21/kron_g500-logn21.mtx"); //~2^21 ≈ 2M rows
     benchmark.addMatrixFile("thirdparty/kron_g500-logn19/kron_g500-logn19.mtx"); //~2^19 ≈ 524k rows
     benchmark.addMatrixFile("thirdparty/audikw_1/audikw_1.mtx");     //~944k rows

@@ -10,12 +10,12 @@ else
   echo "F1 already exists"
 fi
 
-if [ ! -d "Circuit5M" ]; then
+if [ ! -d "circuit5M" ]; then
   echo "Downloading Circuit5M..."
-  wget https://suitesparse-collection-website.herokuapp.com/MM/GHS_psdef/Circuit5M.tar.gz
-  tar -xzf Circuit5M.tar.gz
-  rm Circuit5M.tar.gz
-  ls Circuit5M/Circuit5M.mtx
+  wget https://suitesparse-collection-website.herokuapp.com/MM/GHS_psdef/circuit5M.tar.gz
+  tar -xzf circuit5M.tar.gz
+  rm circuit5M.tar.gz
+  ls circuit5M/circuit5M.mtx
 else
   echo "Circuit5M already exists"
 fi
@@ -42,7 +42,7 @@ fi
 
 if [ ! -d "audikw_1" ]; then
   echo "Downloading audikw_1..."
-  wget https://suitesparse-collection-website.herokuapp.com/MM/Pothen/audikw_1.tar.gz
+  wget https://suitesparse-collection-website.herokuapp.com/MM/GHS_psdef/audikw_1.tar.gz 
   tar -xzf audikw_1.tar.gz
   rm audikw_1.tar.gz
   ls audikw_1/audikw_1.mtx

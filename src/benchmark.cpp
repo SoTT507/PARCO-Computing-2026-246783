@@ -3,7 +3,7 @@
 
 SparseMatrixBenchmark::SparseMatrixBenchmark() {
     // Default thread counts
-    thread_counts = {1, 2, 4, 8, 16};
+    thread_counts = {1, 2, 4, 8, 16, 32, 64, 128};
     // Create output directory
     std::filesystem::create_directories(output_dir);
 }
