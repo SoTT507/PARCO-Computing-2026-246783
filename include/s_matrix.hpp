@@ -31,14 +31,4 @@ public:
     void spmv(const std::vector<double>& x, std::vector<double>& y) const;
 };
 
-struct PthreadArgs {
-    const CSRMatrix* csr;
-    const double* x;
-    double* y;
-    int start_row;
-    int end_row;
-    int thread_id;
-    std::mutex* mutex;
-};
-
 #endif

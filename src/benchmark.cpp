@@ -1,5 +1,25 @@
 #include "benchmark.hpp"
 
+SparseMatrixBenchmark::SparseMatrixBenchmark() {
+    // Default thread counts
+    thread_counts = {1, 2, 4, 8, 16, 32, 64, 128};
+    // Create output directory
+    std::filesystem::create_directories(output_dir);
+}
+
+void SparseMatrixBenchmark::addMatrixFile(const std::string& filepath) {
+    matrix_files.push_back(filepath);
+}
+
+void SparseMatrixBenchmark::setThreadCounts(const std::vector<int>& counts) {
+    thread_counts = counts;
+}
+void SparseMatrixBenchmark::setOutputDirectory(const std::string& dir) {
+    output_dir = dir;
+    std::filesystem::create_directories(output_dir);
+}
+
+
 void BenchmarkResult::calculate(const std::vector<double>& times) {
     run_times = times;
     if (times.empty()) return;
@@ -11,16 +31,17 @@ void BenchmarkResult::calculate(const std::vector<double>& times) {
     min_time = *std::min_element(times.begin(), times.end());
     max_time = *std::max_element(times.begin(), times.end());
 
-    // 90th percentile
+    // 90th percentile - fixed index calculation
     size_t index = static_cast<size_t>(std::ceil(0.9 * times.size())) - 1;
     if (index >= sorted_times.size()) index = sorted_times.size() - 1;
     percentile_90 = sorted_times[index];
 }
 
+
 BenchmarkResult SparseMatrixBenchmark::benchmarkCOOSequential(
     const COOMatrix& coo, const std::vector<double>& x, int runs) {
 
-    std::vector<double> y(coo.rows,0.0);
+    std::vector<double> y(coo.rows, 0.0);
     std::vector<double> times;
     times.reserve(runs);
 
@@ -42,6 +63,7 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCOOSequential(
     result.calculate(times);
     return result;
 }
+
 
 BenchmarkResult SparseMatrixBenchmark::benchmarkCSRSequential(
     const CSRMatrix& csr, const std::vector<double>& x, int runs) {
@@ -65,9 +87,12 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCSRSequential(
     return result;
 }
 
+
 BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPStatic(
     const CSRMatrix& csr, const std::vector<double>& x, int num_threads, int runs) {
 
+    if (num_threads <= 0) num_threads = 1;
+    
     std::vector<double> y(csr.rows, 0.0);
     std::vector<double> times;
     times.reserve(runs);
@@ -97,7 +122,8 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPStatic(
 
 BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPDynamic(
     const CSRMatrix& csr, const std::vector<double>& x, int num_threads, int runs) {
-    
+
+    if (num_threads <= 0) num_threads = 1;
     
     std::vector<double> y(csr.rows, 0.0);
     std::vector<double> times;
@@ -129,7 +155,9 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPDynamic(
 BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPGuided(
     const CSRMatrix& csr, const std::vector<double>& x, int num_threads, int runs) {
 
-    std::vector<double> y(csr.rows,0.0);
+    if (num_threads <= 0) num_threads = 1;
+    
+    std::vector<double> y(csr.rows, 0.0);
     std::vector<double> times;
     times.reserve(runs);
 
@@ -156,10 +184,14 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPGuided(
     return result;
 }
 
+
 void SparseMatrixBenchmark::writeBenchmarkHeader(const std::string& filename) {
     std::ofstream file(filename);
     if (file.is_open()) {
         file << "matrix,format,threads,schedule,percentile_90,average,min_time,max_time,speedup,efficiency\n";
+        file.close();
+    } else {
+        std::cerr << "Error: Could not open file for writing: " << filename << std::endl;
     }
 }
 
@@ -172,16 +204,19 @@ void SparseMatrixBenchmark::writeBenchmarkResult(const std::string& filename, co
              << format << ","
              << threads << ","
              << schedule << ","
-             << result.percentile_90 << ","
+             << std::fixed << std::setprecision(6) << result.percentile_90 << ","
              << result.average << ","
              << result.min_time << ","
              << result.max_time << ","
-             << speedup << ","
-             << efficiency << "\n";
+             << std::setprecision(3) << speedup << ","
+             << std::setprecision(2) << efficiency << "\n";
+        file.close();
+    } else {
+        std::cerr << "Error: Could not append to file: " << filename << std::endl;
     }
 }
 
-//======================== UTIL and MAIN Benchmark =========================//
+// ==================== Utility Functions ====================
 
 std::vector<double> SparseMatrixBenchmark::generateRandomVector(int size) {
     std::vector<double> vec(size);
@@ -199,28 +234,9 @@ std::vector<double> SparseMatrixBenchmark::generateOnesVector(int size) {
     return std::vector<double>(size, 1.0);
 }
 
-SparseMatrixBenchmark::SparseMatrixBenchmark() {
-    // Default thread counts
-    thread_counts = {1, 2, 4, 8, 16, 32, 64, 128};
-    // Create output directory
-    std::filesystem::create_directories(output_dir);
-}
-
-void SparseMatrixBenchmark::addMatrixFile(const std::string& filepath) {
-    matrix_files.push_back(filepath);
-}
-
-void SparseMatrixBenchmark::setThreadCounts(const std::vector<int>& counts) {
-    thread_counts = counts;
-}
-
-void SparseMatrixBenchmark::setOutputDirectory(const std::string& dir) {
-    output_dir = dir;
-    std::filesystem::create_directories(output_dir);
-}
-
 void SparseMatrixBenchmark::runFullBenchmark() {
     std::cout << "--> Sparse Matrix-Vector Multiplication Benchmark <--\n\n";
+    
     // Create output directory
     std::filesystem::create_directories(output_dir);
 
@@ -228,17 +244,8 @@ void SparseMatrixBenchmark::runFullBenchmark() {
         std::cout << "Testing matrix: " << file << "\n";
         std::cout << "=============================================\n";
 
-        std::string base_name = file;
-        /* ====== IMPORTANT ======= */
-        // Remove path and extension for clean filename
-        size_t last_slash = base_name.find_last_of("/\\");
-        if (last_slash != std::string::npos) {
-            base_name = base_name.substr(last_slash + 1);
-        }
-        size_t last_dot = base_name.find_last_of(".");
-        if (last_dot != std::string::npos) {
-            base_name = base_name.substr(0, last_dot);
-        }
+        std::string base_name = std::filesystem::path(file).stem().string();
+        
         std::string csv_file = output_dir + "/" + base_name + "_results.csv";
         writeBenchmarkHeader(csv_file);
 
@@ -251,7 +258,10 @@ void SparseMatrixBenchmark::runFullBenchmark() {
             // Sequential benchmarks
             auto coo_seq = benchmarkCOOSequential(coo, x);
             auto csr_seq = benchmarkCSRSequential(csr, x);
-            double seq_speedup = coo_seq.percentile_90 / csr_seq.percentile_90;
+            
+            // Avoid division by zero
+            double seq_speedup = (csr_seq.percentile_90 > 0) ? 
+                coo_seq.percentile_90 / csr_seq.percentile_90 : 0.0;
 
             writeBenchmarkResult(csv_file, base_name, "COO", 1, "sequential", coo_seq);
             writeBenchmarkResult(csv_file, base_name, "CSR", 1, "sequential", csr_seq, seq_speedup, 100.0);
@@ -259,7 +269,7 @@ void SparseMatrixBenchmark::runFullBenchmark() {
             std::cout << "Sequential Results:\n";
             std::cout << "COO - 90th percentile: " << coo_seq.percentile_90 << " ms\n";
             std::cout << "CSR - 90th percentile: " << csr_seq.percentile_90 << " ms\n";
-            std::cout << "Speedup CSR vs COO: " << coo_seq.percentile_90 / csr_seq.percentile_90 << "x\n\n";
+            std::cout << "Speedup CSR vs COO: " << seq_speedup << "x\n\n";
 
             // Parallel benchmarks
             std::cout << "Parallel Results (90th percentile in ms):\n\n";
@@ -269,42 +279,41 @@ void SparseMatrixBenchmark::runFullBenchmark() {
                 << std::setw(15) << "OMP Static"
                 << std::setw(15) << "OMP Dynamic"
                 << std::setw(15) << "OMP Guided"
-                << std::setw(15) << "Pthreads"
                 << "\n";
 
             for (int threads : thread_counts) {
+                if (threads <= 0) continue;
+
                 auto omp_static = benchmarkCSROMPStatic(csr, x, threads);
                 auto omp_dynamic = benchmarkCSROMPDynamic(csr, x, threads);
                 auto omp_guided = benchmarkCSROMPGuided(csr, x, threads);
-                auto pthreads = benchmarkCSRPthreads(csr, x, threads);
 
-                double static_speedup = csr_seq.percentile_90 / omp_static.percentile_90;
-                double static_efficiency = (static_speedup / threads) * 100.0;
+                // Calculate speedup and efficiency with safety checks
+                double static_speedup = (omp_static.percentile_90 > 0) ? 
+                    csr_seq.percentile_90 / omp_static.percentile_90 : 0.0;
+                double static_efficiency = (threads > 0) ? (static_speedup / threads) * 100.0 : 0.0;
 
-                double dynamic_speedup = csr_seq.percentile_90 / omp_dynamic.percentile_90;
-                double dynamic_efficiency = (dynamic_speedup / threads) * 100.0;
+                double dynamic_speedup = (omp_dynamic.percentile_90 > 0) ? 
+                    csr_seq.percentile_90 / omp_dynamic.percentile_90 : 0.0;
+                double dynamic_efficiency = (threads > 0) ? (dynamic_speedup / threads) * 100.0 : 0.0;
 
-                double guided_speedup = csr_seq.percentile_90 / omp_guided.percentile_90;
-                double guided_efficiency = (guided_speedup / threads) * 100.0;
+                double guided_speedup = (omp_guided.percentile_90 > 0) ? 
+                    csr_seq.percentile_90 / omp_guided.percentile_90 : 0.0;
+                double guided_efficiency = (threads > 0) ? (guided_speedup / threads) * 100.0 : 0.0;
 
-                double pthread_speedup = csr_seq.percentile_90 / pthreads.percentile_90;
-                double pthread_efficiency = (pthread_speedup / threads) * 100.0;
-
+                // Write results
                 writeBenchmarkResult(csv_file, base_name, "CSR", threads, "omp_static",
                                    omp_static, static_speedup, static_efficiency);
                 writeBenchmarkResult(csv_file, base_name, "CSR", threads, "omp_dynamic",
                                    omp_dynamic, dynamic_speedup, dynamic_efficiency);
                 writeBenchmarkResult(csv_file, base_name, "CSR", threads, "omp_guided",
                                    omp_guided, guided_speedup, guided_efficiency);
-                writeBenchmarkResult(csv_file, base_name, "CSR", threads, "pthreads",
-                                   pthreads, pthread_speedup, pthread_efficiency);
 
                 std::cout << std::left
                         << std::setw(10) << threads
                         << std::setw(15) << std::fixed << std::setprecision(3) << omp_static.percentile_90
                         << std::setw(15) << omp_dynamic.percentile_90
                         << std::setw(15) << omp_guided.percentile_90
-                        << std::setw(15) << pthreads.percentile_90
                         << "\n";
             }
             std::cout << "\n";
@@ -315,7 +324,6 @@ void SparseMatrixBenchmark::runFullBenchmark() {
     }
 
     std::cout << "All benchmark results saved to: " << output_dir << "/\n";
-    std::cout << "Use 'python3 ./plots/plot.py' to generate graphs.\n";
 }
 
 void SparseMatrixBenchmark::warmup() {
@@ -323,20 +331,20 @@ void SparseMatrixBenchmark::warmup() {
         try {
             COOMatrix coo(file);
             CSRMatrix csr(coo);
-
             std::vector<double> x = generateOnesVector(csr.cols);
 
-            // Sequential benchmarks
-            auto coo_seq = benchmarkCOOSequential(coo, x);
-            auto csr_seq = benchmarkCSRSequential(csr, x);
+            // Run each benchmark once to warm up
+            benchmarkCOOSequential(coo, x, 1);
+            benchmarkCSRSequential(csr, x, 1);
 
             for (int threads : thread_counts) {
-                auto omp_static = benchmarkCSROMPStatic(csr, x, threads);
-                auto omp_dynamic = benchmarkCSROMPDynamic(csr, x, threads);
-                auto omp_guided = benchmarkCSROMPGuided(csr, x, threads);
+                if (threads <= 0) continue;
+                benchmarkCSROMPStatic(csr, x, threads, 1);
+                benchmarkCSROMPDynamic(csr, x, threads, 1);
+                benchmarkCSROMPGuided(csr, x, threads, 1);
             }
         } catch (const std::exception& e) {
-            std::cout << "Error processing " << file << ": " << e.what() << "\n\n";
+            std::cout << "Error in warmup for " << file << ": " << e.what() << "\n";
         }
     }
 }
