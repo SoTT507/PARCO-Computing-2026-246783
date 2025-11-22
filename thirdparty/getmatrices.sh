@@ -1,37 +1,52 @@
 #!/bin/bash
 
-if [ ! -d "1138_bus" ]; then
-  wget https://suitesparse-collection-website.herokuapp.com/MM/HB/1138_bus.tar.gz
-  gzip -d 1138_bus.tar.gz
-  tar -xf 1138_bus.tar
-  ls 1138_bus/1138_bus.mtx
+if [ ! -d "bcsstk36" ]; then
+  echo "Downloading bcsstk36..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/Boeing/bcsstk36.tar.gz
+  tar -xzf bcsstk36.tar.gz
+  rm bcsstk36.tar.gz
+  ls bcsstk36/bcsstk36.mtx
+else
+  echo "bcsstk36 already exists"
 fi
-
 
 if [ ! -d "F1" ]; then
+  echo "Downloading F1..."
   wget https://suitesparse-collection-website.herokuapp.com/MM/Koutsovasilis/F1.tar.gz
-  gzip -d F1.tar.gz
-  tar -xf F1.tar
+  tar -xzf F1.tar.gz
+  rm F1.tar.gz
   ls F1/F1.mtx
+else
+  echo "F1 already exists"
 fi
 
-if [ ! -d "fl2010" ]; then
-  wget https://suitesparse-collection-website.herokuapp.com/MM/DIMACS10/fl2010.tar.gz
-  gzip -d fl2010.tar.gz
-  tar -xf fl2010.tar
-  ls fl2010/fl2010.mxt
+if [ ! -d "af23560" ]; then
+  echo "Downloading af23560..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/Bai/af23560.tar.gz
+  tar -xzf af23560.tar.gz
+  rm af23560.tar.gz
+  ls af23560/af23560.mtx
+else
+  echo "af23560 already exists"
 fi
 
-if [ ! -d "circuit5M" ]; then
-wget https://suitesparse-collection-website.herokuapp.com/MM/Freescale/circuit5M.tar.gz
-gzip -d circuit5M.tar.gz
-tar -xf circuit5M.tar
-ls circuit5M/circuit5M.mtx
+if [ ! -d "bcsstk25" ]; then
+  echo "Downloading bcsstk25..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/HB/bcsstk25.tar.gz
+  tar -xzf bcsstk25.tar.gz
+  rm bcsstk25.tar.gz
+  ls bcsstk25/bcsstk25.mtx
+else
+  echo "bcsstk25 already exists"
 fi
 
-if [ ! -d "FullChip" ]; then
-    wget https://suitesparse-collection-website.herokuapp.com/MM/Freescale/FullChip.tar.gz
-    gzip -d FullChip.tar.gz
-    tar -xf FullChip.tar
-    ls FullChip/FullChip.mtx
+if [ ! -d "rdb968" ]; then
+  echo "Downloading rdb968..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/Bai/rdb968.tar.gz
+  tar -xzf rdb968.tar.gz
+  rm rdb968.tar.gz
+  ls rdb968/rdb968.mtx
+else
+  echo "rdb968 already exists"
 fi
+
