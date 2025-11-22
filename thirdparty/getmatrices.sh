@@ -10,22 +10,22 @@ else
   echo "F1 already exists"
 fi
 
-if [ ! -d "circuit5M" ]; then
-  echo "Downloading Circuit5M..."
-  wget https://suitesparse-collection-website.herokuapp.com/MM/GHS_psdef/circuit5M.tar.gz
-  tar -xzf circuit5M.tar.gz
-  rm circuit5M.tar.gz
-  ls circuit5M/circuit5M.mtx
+if [ ! -d "mycielskian19" ]; then
+  echo "Downloading mycielskian19..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/Mycielski/mycielskian19.tar.gz
+  tar -xzf mycielskian19.tar.gz
+  rm mycielskian19.tar.gz
+  ls mycielskian19/mycielskian19.mtx
 else
   echo "Circuit5M already exists"
 fi
 
-if [ ! -d "kron_g500-logn21" ]; then
+if [ ! -d "dielFilterV3clx" ]; then
   echo "Downloading kron_g500-logn21..."
-  wget https://suitesparse-collection-website.herokuapp.com/MM/DIMACS10/kron_g500-logn21.tar.gz
-  tar -xzf kron_g500-logn21.tar.gz
-  rm kron_g500-logn21.tar.gz
-  ls kron_g500-logn21/kron_g500-logn21.mtx
+  wget https://suitesparse-collection-website.herokuapp.com/MM/Dziekonski/dielFilterV3clx.tar.gz
+  tar -xzf dielFilterV3clx.tar.gz
+  rm dielFilterV3clx.tar.gz
+  ls dielFilterV3clx/dielFilterV3clx.mtx
 else
   echo "kron_g500-logn21 already exists"
 fi
@@ -40,13 +40,15 @@ else
   echo "kron_g500-logn19 already exists"
 fi
 
-if [ ! -d "audikw_1" ]; then
+if [ ! -d "msdoor" ]; then
   echo "Downloading audikw_1..."
-  wget https://suitesparse-collection-website.herokuapp.com/MM/GHS_psdef/audikw_1.tar.gz 
-  tar -xzf audikw_1.tar.gz
-  rm audikw_1.tar.gz
-  ls audikw_1/audikw_1.mtx
+  wget https://suitesparse-collection-website.herokuapp.com/MM/INPRO/msdoor.tar.gz
+  tar -xzf msdoor.tar.gz
+  rm msdoor.tar.gz
+  ls msdoor/msdoor.mtx
 else
   echo "audikw_1 already exists"
 fi
+
+# volendo auto
 
