@@ -79,7 +79,7 @@ module load python-3.8.13
 ```
 ```bash 
 #In the root folder
-./runBM.pbs
+qsub runBM.pbs
 
 #to plot the graphs
 cd plots
