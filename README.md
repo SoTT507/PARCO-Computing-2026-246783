@@ -82,7 +82,7 @@ module load python-3.8.13
 #!!!IMPORTANT!!! do not execute buid_run.sh (cluster rules)
 ./build.sh
 ```
-#### Sumbit
+#### Submit
 ```bash 
 #In the root folder
 qsub runBM.pbs
