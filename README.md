@@ -71,7 +71,7 @@ python3 plot.py
 The methods to read the matrices in the Matrix Market format make use of the library routines available at https://math.nist.gov/MatrixMarket/mmio-c.html
 found under **Source Code** section
 
-#### To run on the cluster
+## To run on the cluster
 First of all, load the modules to meet the requirements:
 ```bash
 module load cmake-3.15.4
