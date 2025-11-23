@@ -67,4 +67,6 @@ cd plots
 python3 plot.py
 
 ```
-
+## Notes on implementation which uses T.P. software
+The methods to read the matrices in the Matrix Market format make use of the library routines available at https://math.nist.gov/MatrixMarket/mmio-c.html
+found under **Source Code** section
