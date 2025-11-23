@@ -77,6 +77,12 @@ First of all, load the modules to meet the requirements:
 module load cmake-3.15.4
 module load python-3.8.13
 ```
+#### Build
+```bash
+#!!!IMPORTANT!!! do not execute buid_run.sh (cluster rules)
+./build.sh
+```
+#### Sumbit
 ```bash 
 #In the root folder
 qsub runBM.pbs
