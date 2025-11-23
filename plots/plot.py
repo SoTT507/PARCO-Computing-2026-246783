@@ -21,8 +21,11 @@ def load_results():
     return pd.concat(all_data, ignore_index=True)
 
 def plot_90th_percentile(df):
-    parallel_df = df[df['schedule'].str.startswith('omp_')]
-    
+    # parallel_df = df[df['schedule'].str.startswith('omp_')]
+
+    #Uncomment above to print execution times across every scheduling strategy
+
+    parallel_df = df[df['schedule']=='omp_guided']
     # GRAPH 1: Execution times
     plt.figure(figsize=(12, 6))
     
@@ -33,7 +36,7 @@ def plot_90th_percentile(df):
     
     plt.xlabel('Threads')
     plt.ylabel('Time (ms)')
-    plt.title('90th Percentile Execution Time - All Parallel Schedules')
+    plt.title('90th Percentile Execution Time - Guided Scheduling')
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.xticks(sorted(parallel_df['threads'].unique()))
@@ -43,7 +46,7 @@ def plot_90th_percentile(df):
     plt.show()
     
     # GRAPH 2: Speedup comparison
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(12, 7))
     
     # Get OMP Guided results
     guided_df = df[df['schedule'] == 'omp_guided']
@@ -68,7 +71,7 @@ def plot_90th_percentile(df):
     
     plt.xlabel('Number of Threads')
     plt.ylabel('Speedup (vs Sequential)')
-    plt.title('Speedup Improvement - OMP Guided vs Sequential\n(Higher is Better)')
+    plt.title('Speedup Improvement - OMP Guided vs Sequential')
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.xticks(threads)

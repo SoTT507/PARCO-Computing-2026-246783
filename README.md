@@ -15,26 +15,28 @@
 - Bottleneck identification 
 
 #### Prerequisites
-- C++17 compatible compiler
+- C++11 compatible compiler (or later)
 - CMake 3.10+
 - OpenMP support
 - Python 3.8+ (for data plotting)
 
-#### Building
+#### Download
+```bash
 git clone https://github.com/SoTT507/PARCO-Computing-2026-246783
 cd PARCO-Computing-2026-246783
-cd build
-cmake --fresh ..
-cmake --build .
+```
+#### Building
+```bash
+./build.sh
+```
+#### Running
+```bash
+#run the deliverable and store csv data
+./d1_SpMV
+cd plots
+#print the graphs
+python3 plot.py
 
-./main/run
-# PARCO-Computing-2026-246783
-# PARCO-Computing-2026-246783
-# PARCO-Computing-2026-246783
-# PARCO-Computing-2026-246783
-# PARCO-Computing-2026-246783
-# PARCO-Computing-2026-246783
-# PARCO-Computing-2026-246783
-# PARCO-Computing-2026-246783
-# PARCO-Computing-2026-246783
-# PARCO-Computing-2026-246783
+```
+
+#### Build and Run

@@ -100,6 +100,7 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPStatic(
 
     for (int run = 0; run < runs; run++) {
         auto start = std::chrono::high_resolution_clock::now();
+        
         #pragma omp parallel num_threads(num_threads)
         {
           #pragma omp for schedule(static)
@@ -133,7 +134,6 @@ BenchmarkResult SparseMatrixBenchmark::benchmarkCSROMPDynamic(
     for (int run = 0; run < runs; run++) {
         auto start = std::chrono::high_resolution_clock::now();
 
-        // OpenMP dynamic scheduling
         #pragma omp parallel num_threads(num_threads)
         {
           #pragma omp for schedule(dynamic) 

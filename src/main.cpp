@@ -4,9 +4,6 @@
 
 int main() {
     SparseMatrixBenchmark benchmark;
-    // Add matrices with different sparsity patterns
-    
-
 
     benchmark.addMatrixFile("thirdparty/F1/F1.mtx");                 //~??k rows (depends on F1)
     benchmark.addMatrixFile("thirdparty/af_shell7/af_shell7.mtx");   //~5M rows (large)
@@ -21,8 +18,8 @@ int main() {
     // benchmark.addMatrixFile("thirdparty/af23560/af23560.mtx");
     //
     //
-    //Considering a piece of code to run warmup directly from program
-    //instead of running the program multiple times as of now
+    //Loop to run warmup directly from program
+    //instead of running the program multiple times
     //
     for(int i = 1; i<=5; i++){
       benchmark.warmup(); //same as runFullBenchmark but does not save nor print results
