@@ -25,6 +25,7 @@
 git clone https://github.com/SoTT507/PARCO-Computing-2026-246783
 cd PARCO-Computing-2026-246783
 ```
+## For Linux (Ubuntu - Debian-based)
 #### Building
 ```bash
 ./build.sh
@@ -38,5 +39,32 @@ cd plots
 python3 plot.py
 
 ```
-
 #### Build and Run
+```bash
+./build_and_run.sh
+```
+### IMPORTANT
+The code has been developed and tested on Linux systems, therefore running with the commands above on Windows will result in error:
+Try the following commands but running is not granted. Linux is the way :)
+
+## Windows & Linux (Ubuntu - Debian-based)
+
+#### Manual Building/Running
+```bash
+cd build/
+cmake --fresh ..
+cmake --build .
+
+#move the executable in the main folder along with mmio static library
+mv ./d1_SpMV ../
+mv ./libmmio.a ../
+
+cd ..
+./d1_SpMV
+
+#To print the graphs
+cd plots
+python3 plot.py
+
+```
+
