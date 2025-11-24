@@ -91,3 +91,9 @@ qsub runBM.pbs
 cd plots
 python3 plot.py
 ```
+
+## How to
+To modify the matrices selection there are two ways:
+- **1** Simply Download and save the desired mtx files inside thirdparty/ folder and modify the main.cpp to benchmark those matrices.
+- **2** Change the getmatrices.sh script inside the thirdparty folder and modify the main.cpp to benchmark those matrices.
+After that, rebuild and enjoy
