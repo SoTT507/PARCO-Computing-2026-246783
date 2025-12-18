@@ -5,10 +5,10 @@
 int main() {
     SparseMatrixBenchmark benchmark;
 
-    benchmark.addMatrixFile("thirdparty/F1/F1.mtx");                 //~??k rows (depends on F1)
-    benchmark.addMatrixFile("thirdparty/af_shell7/af_shell7.mtx");   //~5M rows (large)
-    benchmark.addMatrixFile("thirdparty/mario002/mario002.mtx"); //~2^21 ≈ 2M rows
-    benchmark.addMatrixFile("thirdparty/kron_g500-logn19/kron_g500-logn19.mtx"); //~2^19 ≈ 524k rows
+    benchmark.addMatrixFile("thirdparty/F1/F1.mtx");                 //~340k rows
+    benchmark.addMatrixFile("thirdparty/af_shell7/af_shell7.mtx");   //~5M rows
+    benchmark.addMatrixFile("thirdparty/mario002/mario002.mtx"); //~2M rows
+    benchmark.addMatrixFile("thirdparty/kron_g500-logn19/kron_g500-logn19.mtx"); //~524k rows
     benchmark.addMatrixFile("thirdparty/msdoor/msdoor.mtx");     //~944k rows
 
     // benchmark.addMatrixFile("thirdparty/bcsstk36/bcsstk36.mtx"); //~23k rows
