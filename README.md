@@ -5,9 +5,9 @@
 - **1.** Implement a distributed-memory SpMV using MPI
 - **2.** Focus on data distribution, communication, and scalability
 - **3.** Optional advanced features for bonus points
-- - **a.** Parallel reading: each rank reads its own file chunk
-- - **b.** MPI-IO implementation
-- - **c.** Must handle header and line-boundary alignment correctly
+- - Parallel reading: each rank reads its own file chunk
+- - MPI-IO implementation
+- - Must handle header and line-boundary alignment correctly
 
 #### Learnings:
 - **1.** Read and distribute sparse matrices in Matrix Market format
