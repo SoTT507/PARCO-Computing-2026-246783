@@ -15,3 +15,4 @@
 #include <filesystem>
 #include <omp.h>
 #include <pthread.h>
+#include <mpi.h>
