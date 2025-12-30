@@ -29,18 +29,20 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-mv ./d1_SpMV ../
+mv ./d2_SpMV ../
 mv ./libmmio.a ../
 
 cd ..
 
 cd thirdparty
-exec ./getmatrices.sh
+exec ./getmatrices_test.sh
 cd ..
 
+export OMP_NUM_THREADS=4
+echo "Running MPI+OpenMP SpMV benchmarks"
 mpirun -np 4 ./d2_SpMV
-mpirun -np 9 ./d2_SpMV
-mpirun -np 16 .d2_SpMV
+mpirun -np 8 ./d2_SpMV
+mpirun -np 16 ./d2_SpMV
 
 cd plot
 

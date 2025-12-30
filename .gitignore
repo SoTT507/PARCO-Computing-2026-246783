@@ -1,9 +1,11 @@
 d1_SpMV
 /build/
 /thirdparty/*
+!/thirdparty/getmatrices_test.sh
 !/thirdparty/getmatrices.sh
 !/thirdparty/mmio
 /plots/*
 !/plots/plot.py
+!/plots/mpi_plot.py
 compile_commands.json
 

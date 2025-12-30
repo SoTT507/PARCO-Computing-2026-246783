@@ -1,5 +1,4 @@
-#include "distributed_matrix.hpp"
-#include <algorithm>
+#include "d_matrix.hpp"
 
 DistributedMatrix::DistributedMatrix(const COOMatrix& global,
                                      Partitioning part,

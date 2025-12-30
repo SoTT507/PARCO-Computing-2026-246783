@@ -1,7 +1,7 @@
-#include "distributed_matrix.hpp"
-#include <mpi.h>
-#include "benchmark.hpp"
-#include <iostream>
+#include "pch.h"
+#include "d_matrix.hpp"
+#include "mpi_benchmark.hpp"
+#include <filesystem>
 
 int main(int argc, char** argv) {
   //region: Deliverable 1 main code
@@ -31,18 +31,99 @@ int main(int argc, char** argv) {
     // Run full benchmark
     // benchmark.runFullBenchmark();
   //endregion
-
-    MPI_Init(&argc, &argv);
+  std::cout << " ============= INITIATING BENCHMARK ============= " << std::endl;
+  MPI_Init(&argc, &argv);
 
     int rank, size;
-
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    std::cout << "Hello from rank " << rank << " of " << size << std::endl;
+    int omp_threads = omp_get_max_threads();
 
-    //TODO MPI implementation
-    
-    MPI_Finalize();
-    return 0;
+    // std::vector<std::string> matrices = {
+        // "thirdparty/F1/F1.mtx",
+        // "thirdparty/af_shell7/af_shell7.mtx",
+        // "thirdparty/mario002/mario002.mtx",
+        // "thirdparty/kron_g500-logn19/kron_g500-logn19.mtx",
+        // "thirdparty/msdoor/msdoor.mtx"
+    // };
+    std::vector<std::string> matrices = {
+        // "thirdparty/bcsstk36/bcsstk36.mtx",
+        // "thirdparty/bcsstk30/bcsstk30.mtx",
+        "thirdparty/rdb968/rdb968.mtx",
+        "thirdparty/bcsstk25/bcsstk25.mtx",
+        "thirdparty/af23560/af23560.mtx"
+    };
+
+    std::string csv_file = "mpi_spmv_results.csv";
+
+    if (rank == 0) {
+        MPIBenchmark::write_csv_header(csv_file);
+    }
+
+    for (const auto& path : matrices) {
+        COOMatrix global(0,0);
+
+        if (rank == 0) {
+            global.readMatrixMarket(path);
+        }
+
+        // Broadcast metadata
+        MPI_Bcast(&global.rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(&global.cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(&global.nnz,  1, MPI_INT, 0, MPI_COMM_WORLD);
+
+        if (rank != 0) {
+            global.row_idx.resize(global.nnz);
+            global.col_idx.resize(global.nnz);
+            global.values.resize(global.nnz);
+        }
+
+        MPI_Bcast(global.row_idx.data(), global.nnz, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(global.col_idx.data(), global.nnz, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(global.values.data(),  global.nnz, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+        std::vector<double> x(global.cols, 1.0);
+
+        // -------- 1D --------
+        {
+            DistributedMatrix A1(global, Partitioning::OneD);
+            auto t = MPIBenchmark::benchmark_spmv(A1, x, 5);
+
+            if (rank == 0) {
+                MPIBenchmark::write_csv_row(
+                    csv_file,
+                    std::filesystem::path(path).stem(),
+                    "1D",
+                    size,
+                    omp_threads,
+                    t
+                );
+            }
+        }
+
+        // -------- 2D --------
+        {
+            DistributedMatrix A2(global, Partitioning::TwoD);
+            auto t = MPIBenchmark::benchmark_spmv(A2, x, 5);
+
+            if (rank == 0) {
+                MPIBenchmark::write_csv_row(
+                    csv_file,
+                    std::filesystem::path(path).stem(),
+                    "2D",
+                    size,
+                    omp_threads,
+                    t
+                );
+            }
+        }
+    }
+
+  MPI_Finalize();
+  //TODO: add FLOPs + bandwidth
+  // separate communication vs computation
+  // add weak scaling with random matrices
+
+  return 0;
 }

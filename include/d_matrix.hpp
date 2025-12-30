@@ -1,11 +1,11 @@
 #pragma once
+#include "pch.h"
 #include "s_matrix.hpp"
-#include <mpi.h>
 
 enum class Partitioning{
   OneD,
   TwoD
-}
+};
 
 class DistributedMatrix{
 public:
