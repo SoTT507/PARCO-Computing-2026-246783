@@ -8,7 +8,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 file(GLOB_RECURSE PROG_SRC 
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/mmio/mmio.c"  # Just include it directly
+    "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/mmio/mmio.c"  #Just Include mmio directly in d2_SpMV
 )
 
 find_package(MPI REQUIRED)
