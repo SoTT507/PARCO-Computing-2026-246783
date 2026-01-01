@@ -11,12 +11,20 @@
 
 cd "$PBS_O_WORKDIR"
 
-mpirun -np 2 ./d2_SpMV
-mpirun -np 4 ./d2_SpMV
-mpirun -np 8 ./d2_SpMV
-mpirun -np 16 ./d2_SpMV
-mpirun -np 32 ./d2_SpMV
-mpirun -np 64 ./d2_SpMV
-mpirun -np 128 ./d2_SpMV
+TOTAL_CORES=$(nproc)
+
+for MPI_PROCS in 1 2 4 8 16 32 64 128
+  do
+    OMP_THREADS=$((TOTAL_CORES / MPI_PROCS))
+    if [ $OMP_THREADS -lt 1 ]; then
+        OMP_THREADS=1
+    fi
+
+    export OMP_NUM_THREADS=$OMP_THREADS
+
+    echo "MPI=$MPI_PROCS  OMP=$OMP_THREADS"
+    mpirun --oversubscribe -np $MPI_PROCS ./d2_SpMV
+  done
+
 
 
