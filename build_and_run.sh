@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -e
 # Sparse Matrix Benchmark Build Script
 echo "=========================================="
 echo "  Sparse Matrix Benchmark Build Script"
@@ -29,19 +29,28 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-mv ./d1_SpMV ../
-mv ./libmmio.a ../
+mv ./d2_SpMV ../
 
 cd ..
 
 cd thirdparty
-exec ./getmatrices.sh
+./getmatrices.sh
 cd ..
 
-mpirun -np 4 ./d2_SpMV
-mpirun -np 9 ./d2_SpMV
-mpirun -np 16 .d2_SpMV
+TOTAL_CORES=$(nproc)
 
+for MPI_PROCS in 1 2 4 8 16
+  do
+    OMP_THREADS=$((TOTAL_CORES / MPI_PROCS))
+    if [ $OMP_THREADS -lt 1 ]; then
+        OMP_THREADS=1
+    fi
+
+    export OMP_NUM_THREADS=$OMP_THREADS
+
+    echo "MPI=$MPI_PROCS  OMP=$OMP_THREADS"
+    mpirun --oversubscribe -np $MPI_PROCS ./d2_SpMV
+  done
 cd plot
 
 python3 mpi_plot.py

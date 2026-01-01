@@ -1,13 +1,13 @@
 #!/bin/bash
 
-if [ ! -d "bcsstk30" ]; then
+if [ ! -d "1138_bus" ]; then
   echo "Downloading bcsstk30..."
-  wget https://suitesparse-collection-website.herokuapp.com/MM/HB/bcsstk30.tar.gz
-  tar -xzf bcsstk30.tar.gz
-  rm bcsstk30.tar.gz
-  ls bcsstk30/bcsstk30.mtx
+  wget https://suitesparse-collection-website.herokuapp.com/MM/HB/1138_bus.tar.gz
+  tar -xzf 1138_bus.tar.gz
+  rm 1138_bus.tar.gz
+  ls 1138_bus/1138_bus.mtx
 else
-  echo "bcsstk30 already exists"
+  echo "1138_bus already exists"
 fi
 
 if [ ! -d "bcsstk36" ]; then

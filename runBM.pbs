@@ -11,5 +11,12 @@
 
 cd "$PBS_O_WORKDIR"
 
-./d1_SpMV
+mpirun -np 2 ./d2_SpMV
+mpirun -np 4 ./d2_SpMV
+mpirun -np 8 ./d2_SpMV
+mpirun -np 16 ./d2_SpMV
+mpirun -np 32 ./d2_SpMV
+mpirun -np 64 ./d2_SpMV
+mpirun -np 128 ./d2_SpMV
+
 
