@@ -52,7 +52,7 @@ void COOMatrix::readMatrixMarket(const std::string& filename, bool keep_1_based)
         values[k]  = v;
         k++;
 
-        // For symmetric matrices: duplicate lower triangle automatically
+        // For symmetric matrices --> duplicate lower triangle automatically
         if (is_symmetric && r != c)
         {
             int rr = r, cc = c;

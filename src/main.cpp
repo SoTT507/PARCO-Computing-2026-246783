@@ -1,5 +1,5 @@
 #include "d_matrix.hpp"
-#include "mpi_benchmark.hpp"
+#include "benchmark.hpp"
 #include "pch.h"
 
 int main(int argc, char **argv) {
@@ -44,19 +44,19 @@ int main(int argc, char **argv) {
 
   // Correct OpenMP thread count
   int omp_threads = 1;
-#pragma omp parallel
+  #pragma omp parallel
   {
-#pragma omp single
+  #pragma omp single
     omp_threads = omp_get_num_threads();
   }
 
   std::vector<std::string> matrices = {
-    "thirdparty/1138_bus/1138_bus.mtx"
-    // "thirdparty/F1/F1.mtx",
-    // "thirdparty/af_shell7/af_shell7.mtx",
-    // "thirdparty/mario002/mario002.mtx",
-    // "thirdparty/kron_g500-logn19/kron_g500-logn19.mtx",
-    // "thirdparty/msdoor/msdoor.mtx"
+    // "thirdparty/1138_bus/1138_bus.mtx"
+    "thirdparty/F1/F1.mtx",
+    "thirdparty/af_shell7/af_shell7.mtx",
+    "thirdparty/mario002/mario002.mtx",
+    "thirdparty/kron_g500-logn19/kron_g500-logn19.mtx",
+    "thirdparty/msdoor/msdoor.mtx"
   };
 
   // std::vector<std::string> matrices = {
@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
   std::string csv_file = "mpi_spmv_results.csv";
 
   if (rank == 0) {
-    MPIBenchmark::write_csv_header(csv_file);
+    SparseMatrixBenchmark::write_csv_header(csv_file);
   }
 
   for (const auto &path : matrices) {
@@ -102,10 +102,10 @@ int main(int argc, char **argv) {
     // ---- 1D ----
     {
       DistributedMatrix A1(global, Partitioning::OneD);
-      auto t = MPIBenchmark::benchmark_spmv(A1, x, 5);
+      auto t = SparseMatrixBenchmark::benchmark_spmv(A1, x, 5);
 
       if (rank == 0) {
-        MPIBenchmark::write_csv_row(csv_file,
+        SparseMatrixBenchmark::write_csv_row(csv_file,
                                     std::filesystem::path(path).stem(), "1D",
                                     size, omp_threads, t);
       }
@@ -114,10 +114,10 @@ int main(int argc, char **argv) {
     // ---- 2D ----
     {
       DistributedMatrix A2(global, Partitioning::TwoD);
-      auto t = MPIBenchmark::benchmark_spmv(A2, x, 5);
+      auto t = SparseMatrixBenchmark::benchmark_spmv(A2, x, 5);
 
       if (rank == 0) {
-        MPIBenchmark::write_csv_row(csv_file,
+        SparseMatrixBenchmark::write_csv_row(csv_file,
                                     std::filesystem::path(path).stem(), "2D",
                                     size, omp_threads, t);
       }

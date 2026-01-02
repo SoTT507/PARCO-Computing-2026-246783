@@ -1,3 +1,3 @@
 matrix,partitioning,mpi_procs,omp_threads,avg_spmv_ms
-1138_bus,1D,16,1,4.37496
-1138_bus,2D,16,1,1.13369
+1138_bus,1D,8,1,0.417191
+1138_bus,2D,8,1,0.442148

@@ -14,7 +14,6 @@ public:
   int global_rows, global_cols;
   int local_rows, local_cols;
 
-  //MPI
   MPI_Comm comm;
   MPI_Comm row_comm, col_comm;
 

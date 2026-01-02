@@ -39,7 +39,7 @@ cd ..
 
 TOTAL_CORES=$(nproc)
 
-for MPI_PROCS in 1 2 4 8 16
+for MPI_PROCS in 1 2 4 8 16 32 64 128
   do
     OMP_THREADS=$((TOTAL_CORES / MPI_PROCS))
     if [ $OMP_THREADS -lt 1 ]; then
@@ -47,6 +47,8 @@ for MPI_PROCS in 1 2 4 8 16
     fi
 
     export OMP_NUM_THREADS=$OMP_THREADS
+    export OMP_PROC_BIND=spread
+    export OMP_PLACES=cores
 
     echo "MPI=$MPI_PROCS  OMP=$OMP_THREADS"
     mpirun --oversubscribe -np $MPI_PROCS ./d2_SpMV

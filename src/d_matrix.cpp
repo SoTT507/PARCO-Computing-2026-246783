@@ -1,8 +1,4 @@
 #include "d_matrix.hpp"
-
-// ============================================================
-// Constructor
-// ============================================================
 DistributedMatrix::DistributedMatrix(const COOMatrix& global,
                                      Partitioning part,
                                      MPI_Comm world)
@@ -14,14 +10,14 @@ DistributedMatrix::DistributedMatrix(const COOMatrix& global,
     global_cols = global.cols;
 
     // ------------------------------------------------------------
-    // SAFETY: 2D partitioning with 1 MPI process makes no sense
+    // IMPORTANT: 2D partitioning with 1 MPI process makes no sense
     // ------------------------------------------------------------
     if (part == Partitioning::TwoD && size == 1) {
         part = Partitioning::OneD;
     }
 
     // ============================================================
-    // 1D PARTITIONING
+    //                      1D PARTITIONING
     // ============================================================
     if (part == Partitioning::OneD) {
 
@@ -55,7 +51,7 @@ DistributedMatrix::DistributedMatrix(const COOMatrix& global,
     }
 
     // ============================================================
-    // 2D PARTITIONING
+    //                      2D PARTITIONING
     // ============================================================
 
     dims[0] = dims[1] = 0;
@@ -101,13 +97,13 @@ DistributedMatrix::DistributedMatrix(const COOMatrix& global,
 }
 
 // ============================================================
-// SpMV
+// ======================== SpMV ==============================
 // ============================================================
 void DistributedMatrix::spmv(const std::vector<double>& x_global,
                              std::vector<double>& y_local) const
 {
     // ------------------------------------------------------------
-    // 1D PARTITIONING
+    //                     1D PARTITIONING
     // ------------------------------------------------------------
     if (row_comm == MPI_COMM_NULL) {
 
@@ -117,7 +113,7 @@ void DistributedMatrix::spmv(const std::vector<double>& x_global,
     }
 
     // ------------------------------------------------------------
-    // 2D PARTITIONING
+    //                     2D PARTITIONING
     // ------------------------------------------------------------
     int Pc = dims[1];
     int block_cols = local_cols;
