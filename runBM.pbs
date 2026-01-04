@@ -9,6 +9,8 @@
 
 #PBS -l select=3:ncpus=128:mem=4gb:net_type=IB
 
+#PBS -l place=scatter:exclhost
+
 cd "$PBS_O_WORKDIR"
 
 TOTAL_CORES=$(nproc)
@@ -25,13 +27,7 @@ for MPI_PROCS in 1 2 4 8 16 32 64 128
     export OMP_PLACES=cores
 
     echo "MPI=$MPI_PROCS  OMP=$OMP_THREADS"
-
-    mpiexec -np $MPI_PROCS -ppn $MPI_PER_NODE \
-            -hostfile $PBS_NODEFILE \
-            -env OMP_NUM_THREADS=$OMP_THREADS \
-            -env OMP_PROC_BIND=spread \
-            -env OMP_PLACES=cores \
-            ./d2_SpMV
+    mpirun --oversubscribe -np $MPI_PROCS ./d2_SpMV
   done
 
 
