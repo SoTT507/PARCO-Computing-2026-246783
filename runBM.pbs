@@ -7,26 +7,29 @@
 
 #PBS -l walltime=00:10:00
 
-#PBS -l select=3:ncpus=256:mem=20gb:net_type=IB
+#PBS -l select=2:ncpus=64:mem=10gb:net_type=IB
 
 cd "$PBS_O_WORKDIR"
 
-TOTAL_CORES=$(nproc)
+TOTAL_CORES=$((PBS_NUM_NODES * PBS_NUM_PPN))
 
-for MPI_PROCS in 1 2 4 8 16 32 64 128
-  do
+SOCKETS_PER_NODE=2
+MPI_PER_NODE_LIST="1 2 4"
+
+for MPI_PER_NODE in $MPI_PER_NODE_LIST
+do
+    MPI_PROCS=$((MPI_PER_NODE * PBS_NUM_NODES))
     OMP_THREADS=$((TOTAL_CORES / MPI_PROCS))
-    if [ $OMP_THREADS -lt 1 ]; then
-        OMP_THREADS=1
-    fi
 
     export OMP_NUM_THREADS=$OMP_THREADS
-    export OMP_PROC_BIND=spread
+    export OMP_PROC_BIND=close
     export OMP_PLACES=cores
 
     echo "MPI=$MPI_PROCS  OMP=$OMP_THREADS"
-    mpirun -np $MPI_PROCS ./d2_SpMV
-  done
 
-
-
+    mpirun \
+      --map-by ppr:${MPI_PER_NODE}:node \
+      --bind-to core \
+      -np $MPI_PROCS \
+      ./d2_SpMV
+done
