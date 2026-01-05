@@ -9,7 +9,7 @@ module load bzip2/1.0.8-GCCcore-13.2.0
 module load OpenSSL/1.1
 module load cURL/8.3.0-GCCcore-13.2.0
 module load XZ/5.4.4-GCCcore-13.2.0
-moudle load libarchive/3.7.2-GCCcore-13.2.0
+module load libarchive/3.7.2-GCCcore-13.2.0
 module load CMake/3.27.6-GCCcore-13.2.0
 
 # Sparse Matrix Benchmark Build Script
