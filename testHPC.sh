@@ -16,8 +16,8 @@ do
     echo "MPI=$MPI_PROCS  OMP=$OMP_THREADS"
 
     mpiexec \
+      -n $MPI_PROCS \
       --map-by ppr:${MPI_PER_NODE}:node \
       --bind-to core \
-      -np $MPI_PROCS \
       ./d2_SpMV
 done
