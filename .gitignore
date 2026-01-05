@@ -1,4 +1,6 @@
 d1_SpMV
+d2_SpMV
+mpi_spmv_results.csv
 /build/
 /thirdparty/*
 !/thirdparty/getmatrices.sh
