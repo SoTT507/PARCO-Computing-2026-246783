@@ -15,7 +15,7 @@ do
 
     echo "MPI=$MPI_PROCS  OMP=$OMP_THREADS"
 
-    mpirun \
+    mpiexec \
       --map-by ppr:${MPI_PER_NODE}:node \
       --bind-to core \
       -np $MPI_PROCS \
