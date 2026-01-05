@@ -10,7 +10,7 @@ module load OpenSSL/1.1
 module load cURL/7.86.0-GCCcore-12.2.0
 module load XZ/5.2.7-GCCcore-12.2.0
 module load libarchive/3.6.1-GCCcore-12.2.0
-module load CMake/3.24.6-GCCcore-12.2.0
+module load CMake/3.24.3-GCCcore-12.2.0
 
 # Sparse Matrix Benchmark Build Script
 echo "=========================================="
