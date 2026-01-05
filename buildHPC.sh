@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# module load GCCcore/13.2.0
+module load GCCcore/13.2.0
 module load zlib/1.2.13-GCCcore-13.2.0
 module load binutils/2.40-GCCcore-13.2.0
 module load GCC/13.2.0
