@@ -1,16 +1,16 @@
 #!/bin/bash
 
-module load GCCcore/13.2.0
-module load zlib/1.2.13-GCCcore-13.2.0
-module load binutils/2.40-GCCcore-13.2.0
-module load GCC/13.2.0
-module load ncurses/6.4-GCCcore-13.2.0
-module load bzip2/1.0.8-GCCcore-13.2.0
+module load GCCcore/12.2.0
+module load zlib/1.2.12-GCCcore-12.2.0
+module load binutils/2.39-GCCcore-12.2.0
+module load GCC/12.2.0
+module load ncurses/6.3-GCCcore-12.2.0
+module load bzip2/1.0.8-GCCcore-12.2.0
 module load OpenSSL/1.1
-module load cURL/8.3.0-GCCcore-13.2.0
-module load XZ/5.4.4-GCCcore-13.2.0
-module load libarchive/3.7.2-GCCcore-13.2.0
-module load CMake/3.27.6-GCCcore-13.2.0
+module load cURL/7.86.0-GCCcore-12.2.0
+module load XZ/5.2.7-GCCcore-12.2.0
+module load libarchive/3.6.1-GCCcore-12.2.0
+module load CMake/3.24.6-GCCcore-12.2.0
 
 # Sparse Matrix Benchmark Build Script
 echo "=========================================="
