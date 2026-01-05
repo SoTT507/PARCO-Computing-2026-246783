@@ -11,6 +11,16 @@ module load cURL/7.86.0-GCCcore-12.2.0
 module load XZ/5.2.7-GCCcore-12.2.0
 module load libarchive/3.6.1-GCCcore-12.2.0
 module load CMake/3.24.3-GCCcore-12.2.0
+module load numactl/2.0.16-GCCcore-12.2.0
+module load libxml2/2.10.3-GCCcore-12.2.0
+module load libpciaccess/0.17-GCCcore-12.2.0
+module load hwloc/2.8.0-GCCcore-12.2.0
+module load libevent/2.1.12-GCCcore-12.2.0
+module load UCX/1.13.1-GCCcore-12.2.0
+module load libfabric/1.16.1-GCCcore-12.2.0
+module load PMIx/4.2.2-GCCcore-12.2.0
+module load UCC/1.1.0-GCCcore-12.2.0
+module load OpenMPI/4.1.4-GCC-12.2.0
 
 # Sparse Matrix Benchmark Build Script
 echo "=========================================="
