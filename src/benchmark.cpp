@@ -360,40 +360,79 @@ void SparseMatrixBenchmark::warmup() {
 //===================== D2 Implementation =====================
 //=============================================================
 
-MPITiming SparseMatrixBenchmark::benchmark_spmv(const DistributedMatrix& A,
+BenchmarkResult SparseMatrixBenchmark::benchmark_spmv(const DistributedMatrix& A,
                                        const std::vector<double>& x,
                                        int runs) {
     std::vector<double> y;
-    std::vector<double> times;
+    
+    // We will store the "slowest rank" time for each run here on Rank 0
+    std::vector<double> global_run_times; 
+    if (A.rank == 0) {
+        global_run_times.reserve(runs);
+    }
 
     for (int r = 0; r < runs; ++r) {
+        // 1. Synchronize all processes before starting timer
         MPI_Barrier(A.comm);
 
         auto t0 = std::chrono::high_resolution_clock::now();
+        
+        // 2. Perform SpMV
         A.spmv(x, y);
+        
+        // 3. Barrier ensures we measure the time of the slowest process
+        // (This effectively measures the wall-clock time of the parallel step)
         MPI_Barrier(A.comm);
+        
         auto t1 = std::chrono::high_resolution_clock::now();
 
-        double dt =
-            std::chrono::duration<double, std::milli>(t1 - t0).count();
-        times.push_back(dt);
+        double local_dt = std::chrono::duration<double, std::milli>(t1 - t0).count();
+        double global_dt = 0.0;
+
+        // 4. Reduce MAX time for THIS SPECIFIC RUN to Rank 0
+        MPI_Reduce(&local_dt, &global_dt, 1, MPI_DOUBLE, MPI_MAX, 0, A.comm);
+
+        if (A.rank == 0) {
+            global_run_times.push_back(global_dt);
+        }
     }
 
-    double local_avg =
-        std::accumulate(times.begin(), times.end(), 0.0) / runs;
+    MPITiming result = {0.0, 0.0, 0.0, 0.0};
 
-    double global_avg = 0.0;
-    MPI_Reduce(&local_avg, &global_avg, 1,
-               MPI_DOUBLE, MPI_MAX, 0, A.comm);
+    // 5. Calculate statistics on Rank 0
+    if (A.rank == 0) {
+        std::vector<double>& t = global_run_times; // alias
+        
+        // Average
+        double sum = std::accumulate(t.begin(), t.end(), 0.0);
+        result.average = sum / t.size();
 
-    return {global_avg};
+        // Sort for Percentile/Min/Max
+        std::sort(t.begin(), t.end());
+        
+        result.min_time = t.front();
+        result.max_time = t.back();
+
+        // 90th Percentile
+        size_t idx_90 = static_cast<size_t>(std::ceil(0.9 * t.size())) - 1;
+        if (idx_90 >= t.size()) idx_90 = t.size() - 1;
+        result.percentile_90 = t[idx_90];
+    }
+
+    // Broadcast results to all ranks (optional, but good for consistency)
+    // We treat the struct as an array of 4 doubles
+    MPI_Bcast(&result, 4, MPI_DOUBLE, 0, A.comm);
+
+    return result;
 }
+
+
 
 // ================= CSV =================
 void SparseMatrixBenchmark::write_csv_header(const std::string& filename) {
     std::ofstream file(filename);
     if(file.is_open()){
-      file << "matrix,partitioning,mpi_procs,omp_threads,avg_spmv_ms\n";
+      file << "matrix,partitioning,mpi_procs,omp_threads,avg_ms,p90_ms,min_ms,max_ms\n";
       file.close();
   }else{
     std::cerr << "Error: Could not open file for wrting: " <<filename << std::endl;

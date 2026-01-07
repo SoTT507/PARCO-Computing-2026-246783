@@ -2,10 +2,6 @@
 #include "s_matrix.hpp"
 #include "d_matrix.hpp"
 
-struct MPITiming {
-    double spmv_time_ms;
-};
-
 class BenchmarkResult {
 public:
     double percentile_90;
@@ -57,7 +53,7 @@ public:
   // ================ IMPLEMENTATION =================
   // ===================== MPI =======================
 
-    static MPITiming benchmark_spmv(const DistributedMatrix& A, const std::vector<double>& x, int runs);
+    static BenchmarkResult benchmark_spmv(const DistributedMatrix& A, const std::vector<double>& x, int runs);
     static void write_csv_header(const std::string& filename);
     static void write_csv_row(const std::string& filename, const std::string& matrix,
                               const std::string& partitioning, int mpi_procs,

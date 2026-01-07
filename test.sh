@@ -39,7 +39,7 @@ cd ..
 
 TOTAL_CORES=$(nproc)
 
-for MPI_PROCS in 1 2 4 8 16 32 64 128
+for MPI_PROCS in 1 2 4 8
   do
     OMP_THREADS=$((TOTAL_CORES / MPI_PROCS))
     if [ $OMP_THREADS -lt 1 ]; then
@@ -51,7 +51,10 @@ for MPI_PROCS in 1 2 4 8 16 32 64 128
     export OMP_PLACES=cores
 
     echo "MPI=$MPI_PROCS  OMP=$OMP_THREADS"
-    mpirun --oversubscribe -np $MPI_PROCS ./d2_SpMV
+    mpiexec -n $MPI_PROCS ./d2_SpMV
+  
+    RESULT_NAME="plots/result_MPI${MPI_PROCS}_OMP${OMP_THREADS}.csv"
+    cp mpi_spmv_results.csv "$RESULT_NAME"
   done
 cd plot
 
