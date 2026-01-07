@@ -106,12 +106,21 @@ void DistributedMatrix::spmv(const std::vector<double>& x_global,
     //                     1D PARTITIONING
     // ------------------------------------------------------------
     if (row_comm == MPI_COMM_NULL) {
-
         y_local.resize(local_rows);
-        local_csr.spmv(x_global, y_local);
+        
+        // Manually implement loop to ensure OMP GUIDED is used
+        // (Assuming local_csr is populated)
+        
+        #pragma omp parallel for schedule(guided)
+        for (int i = 0; i < local_rows; ++i) {
+            double sum = 0.0;
+            for (int j = local_csr.row_ptr[i]; j < local_csr.row_ptr[i + 1]; ++j) {
+                sum += local_csr.values[j] * x_global[local_csr.col_idx[j]];
+            }
+            y_local[i] = sum;
+        }
         return;
     }
-
     // ------------------------------------------------------------
     //                     2D PARTITIONING
     // ------------------------------------------------------------
