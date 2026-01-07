@@ -1,3 +1,6 @@
+#pragma once
+#include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <cmath>
 #include <algorithm>
@@ -15,3 +18,4 @@
 #include <filesystem>
 #include <omp.h>
 #include <pthread.h>
+#include <mpi.h>

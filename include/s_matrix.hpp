@@ -9,6 +9,7 @@ public:
     std::vector<int> col_idx;
     std::vector<double> values;
     
+    COOMatrix() = default;
     COOMatrix(int r, int c) : rows(r), cols(c), nnz(0) {}
     COOMatrix(const std::string& filename) { readMatrixMarket(filename); }
     

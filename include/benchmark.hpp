@@ -1,5 +1,7 @@
 #include "pch.h"
 #include "s_matrix.hpp"
+#include "d_matrix.hpp"
+
 class BenchmarkResult {
 public:
     double percentile_90;
@@ -33,8 +35,8 @@ public:
     BenchmarkResult benchmarkCSRPthreads(const CSRMatrix& csr, const std::vector<double>& x, int num_threads, int runs = 10);
 
     // CSV writing methods
-    void writeBenchmarkHeader(const std::string& filename);
-    void writeBenchmarkResult(const std::string& filename, const std::string& matrix_name,
+    static void writeBenchmarkHeader(const std::string& filename);
+    static void writeBenchmarkResult(const std::string& filename, const std::string& matrix_name,
                             const std::string& format, int threads, const std::string& schedule,
                             const BenchmarkResult& result, double speedup = 0.0, double efficiency = 0.0);
     void warmup();
@@ -45,4 +47,21 @@ public:
 
     // Main benchmark runner
     void runFullBenchmark();
+   
+
+  // ====================== D2 =======================
+  // ================ IMPLEMENTATION =================
+  // ===================== MPI =======================
+
+    static BenchmarkResult benchmark_spmv(const DistributedMatrix& A, const std::vector<double>& x, int runs);
+  static void writeMPIcsvHeader(const std::string& filename);
+
+    //Dedicated MPI CSV Row writer --> if not the csv would be a mess
+  static void writeMPIcsvRow(const std::string& filename, 
+                                const std::string& matrix,
+                                const std::string& partitioning, 
+                                int mpi_procs,
+                                int omp_threads,
+                                int nnz,
+                                const BenchmarkResult& result);
 };

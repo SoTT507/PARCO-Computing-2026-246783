@@ -3,13 +3,35 @@
 
 #PBS -o ./bench_out.info
 #PBS -e ./err.info
-#PBS -q short_cpuQ
+#PBS -q shortCPUQ
 
-#PBS -l walltime=01:00:00
+#PBS -l walltime=00:10:00
 
-#PBS -l select=3:ncpus=64:mem=4gb:net_type=IB
+#PBS -l select=2:ncpus=64:mem=10gb
 
 cd "$PBS_O_WORKDIR"
 
-./d1_SpMV
+TOTAL_CORES=128
+NODES=2
 
+MPI_PER_NODE_LIST="1 2 4 8"
+
+for MPI_PER_NODE in $MPI_PER_NODE_LIST
+do
+    MPI_PROCS=$((MPI_PER_NODE * NODES))
+    OMP_THREADS=$((TOTAL_CORES / MPI_PROCS))
+
+    export OMP_NUM_THREADS=$OMP_THREADS
+    export OMP_PROC_BIND=close
+    export OMP_PLACES=cores
+
+    echo "MPI=$MPI_PROCS  OMP=$OMP_THREADS"
+
+    mpiexec \
+      -n $MPI_PROCS \
+      ./d2_SpMV
+
+    RESULT_NAME="plots/result_MPI${MPI_PROCS}_OMP${OMP_THREADS}.csv"
+    cp mpi_spmv_results.csv "$RESULT_NAME"
+    rm mpi_spmv_results.csv
+done
