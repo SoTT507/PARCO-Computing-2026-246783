@@ -33,4 +33,5 @@ do
 
     RESULT_NAME="plots/result_MPI${MPI_PROCS}_OMP${OMP_THREADS}.csv"
     cp mpi_spmv_results.csv "$RESULT_NAME"
+    rm mpi_spmv_results.csv
 done
