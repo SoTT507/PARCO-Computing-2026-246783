@@ -51,12 +51,12 @@ int main(int argc, char **argv) {
   }
 
   std::vector<std::string> matrices = {
-    "thirdparty/1138_bus/1138_bus.mtx",
-    // "thirdparty/F1/F1.mtx",
-    // "thirdparty/af_shell7/af_shell7.mtx",
-    // "thirdparty/mario002/mario002.mtx",
-    // "thirdparty/kron_g500-logn19/kron_g500-logn19.mtx",
-    // "thirdparty/msdoor/msdoor.mtx"
+    // "thirdparty/1138_bus/1138_bus.mtx",
+    "thirdparty/F1/F1.mtx",
+    "thirdparty/af_shell7/af_shell7.mtx",
+    "thirdparty/mario002/mario002.mtx",
+    "thirdparty/kron_g500-logn19/kron_g500-logn19.mtx",
+    "thirdparty/msdoor/msdoor.mtx"
   };
   // std::vector<std::string> matrices = {
     // "thirdparty/bcsstk36/bcsstk36.mtx",
