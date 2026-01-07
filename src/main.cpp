@@ -78,6 +78,8 @@ int main(int argc, char **argv) {
     SparseMatrixBenchmark::writeMPIcsvHeader(csv_file);
   }
 
+  MPI_Barrier(MPI_COMM_WORLD)
+
   for (const auto &path : matrices) {
 
     COOMatrix global;

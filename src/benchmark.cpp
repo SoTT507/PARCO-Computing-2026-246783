@@ -426,12 +426,13 @@ BenchmarkResult SparseMatrixBenchmark::benchmark_spmv(const DistributedMatrix& A
 // =============================================================
 
 void SparseMatrixBenchmark::writeMPIcsvHeader(const std::string& filename) {
-    std::ofstream file(filename); // This overwrites/creates the file
+// std::ios::trunc ensures we wipe the old file at the start of the job
+    std::ofstream file(filename, std::ios::out | std::ios::trunc); 
     if(file.is_open()){
-        // Added GFLOP/s as a useful metric for study
         file << "matrix,partitioning,mpi_procs,omp_threads,nnz,"
              << "p90_ms,avg_ms,min_ms,max_ms,gflops\n";
-        file.close();
+    file.flush();    
+    file.close();
     } else {
         std::cerr << "Error: Could not open file for writing: " << filename << std::endl;
     }
