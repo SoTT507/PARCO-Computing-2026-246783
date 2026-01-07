@@ -58,7 +58,6 @@ int main(int argc, char **argv) {
     // "thirdparty/kron_g500-logn19/kron_g500-logn19.mtx",
     // "thirdparty/msdoor/msdoor.mtx"
   };
-
   // std::vector<std::string> matrices = {
     // "thirdparty/bcsstk36/bcsstk36.mtx",
     // "thirdparty/bcsstk30/bcsstk30.mtx",
@@ -66,11 +65,17 @@ int main(int argc, char **argv) {
     // "thirdparty/bcsstk25/bcsstk25.mtx",
     // "thirdparty/af23560/af23560.mtx"
   // };
+  //
+  if (rank == 0) {
+    std::cout << " ============= BENCHMARK: MPI + OMP GUIDED ============= "
+              << std::endl;
+    std::cout << " MPI Ranks: " << size << " | OMP Threads: " << omp_threads << std::endl;
+  }
 
   std::string csv_file = "mpi_spmv_results.csv";
-
   if (rank == 0) {
-    SparseMatrixBenchmark::write_csv_header(csv_file);
+    std::cout << "--> Initializing CSV: " << csv_file << std::endl;
+    SparseMatrixBenchmark::writeMPIcsvHeader(csv_file);
   }
 
   for (const auto &path : matrices) {
@@ -98,29 +103,18 @@ int main(int argc, char **argv) {
     MPI_Bcast(global.values.data(), global.nnz, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     std::vector<double> x(global.cols, 1.0);
-
-    // ---- 1D ----
-    {
-      DistributedMatrix A1(global, Partitioning::OneD);
-      auto t = SparseMatrixBenchmark::benchmark_spmv(A1, x, 5);
-
-      if (rank == 0) {
-        SparseMatrixBenchmark::write_csv_row(csv_file,
-                                    std::filesystem::path(path).stem(), "1D",
-                                    size, omp_threads, t);
-      }
+    // 1D Test
+    DistributedMatrix A1(global, Partitioning::OneD);
+    BenchmarkResult res1 = SparseMatrixBenchmark::benchmark_spmv(A1, x, 10);
+    if (rank == 0) {
+      SparseMatrixBenchmark::writeMPIcsvRow(csv_file, "1138_bus", "1D", size, omp_threads, global.nnz, res1);
     }
 
-    // ---- 2D ----
-    {
-      DistributedMatrix A2(global, Partitioning::TwoD);
-      auto t = SparseMatrixBenchmark::benchmark_spmv(A2, x, 5);
-
-      if (rank == 0) {
-        SparseMatrixBenchmark::write_csv_row(csv_file,
-                                    std::filesystem::path(path).stem(), "2D",
-                                    size, omp_threads, t);
-      }
+    // 2D Test
+    DistributedMatrix A2(global, Partitioning::TwoD);
+    BenchmarkResult res2 = SparseMatrixBenchmark::benchmark_spmv(A2, x, 10);
+    if (rank == 0) {
+      SparseMatrixBenchmark::writeMPIcsvRow(csv_file, "1138_bus", "2D", size, omp_threads, global.nnz, res2);
     }
   }
 

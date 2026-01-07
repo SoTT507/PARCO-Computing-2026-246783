@@ -137,7 +137,7 @@ void DistributedMatrix::spmv(const std::vector<double>& x_global,
                   k,
                   col_comm);
 
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(guided)
         for (int i = 0; i < local_rows; ++i) {
             double sum = 0.0;
             for (int j = local_csr.row_ptr[i];

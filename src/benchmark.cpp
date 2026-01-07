@@ -205,8 +205,8 @@ void SparseMatrixBenchmark::writeBenchmarkHeader(const std::string& filename) {
 void SparseMatrixBenchmark::writeBenchmarkResult(const std::string& filename, const std::string& matrix_name,
                         const std::string& format, int threads, const std::string& schedule,
                         const BenchmarkResult& result, double speedup, double efficiency) {
-    std::ofstream file(filename, std::ios::app);
-    if (file.is_open()) {
+      std::ofstream file(filename, std::ios::app);
+      if (file.is_open()) {
         file << matrix_name << ","
              << format << ","
              << threads << ","
@@ -216,7 +216,7 @@ void SparseMatrixBenchmark::writeBenchmarkResult(const std::string& filename, co
              << result.min_time << ","
              << result.max_time << ","
              << std::setprecision(3) << speedup << ","
-             << std::setprecision(2) << efficiency << "\n";
+             << std::setprecision(2) << efficiency << "\n";  
         file.close();
     } else {
         std::cerr << "Error: Could not append to file: " << filename << std::endl;
@@ -371,16 +371,21 @@ BenchmarkResult SparseMatrixBenchmark::benchmark_spmv(const DistributedMatrix& A
         global_run_times.reserve(runs);
     }
 
+      std::cout << std::left
+        << std::setw(10) << "90th_perc"
+        << std::setw(15) << "average"
+        << std::setw(15) << "min_time"
+        << std::setw(15) << "max_time"
+        << "\n";
     for (int r = 0; r < runs; ++r) {
-        // 1. Synchronize all processes before starting timer
+        // Synchronize all processes before starting timer
         MPI_Barrier(A.comm);
-
         auto t0 = std::chrono::high_resolution_clock::now();
         
-        // 2. Perform SpMV
+        // Perform SpMV
         A.spmv(x, y);
         
-        // 3. Barrier ensures we measure the time of the slowest process
+        // Barrier ensures we measure the time of the slowest process
         // (This effectively measures the wall-clock time of the parallel step)
         MPI_Barrier(A.comm);
         
@@ -389,7 +394,7 @@ BenchmarkResult SparseMatrixBenchmark::benchmark_spmv(const DistributedMatrix& A
         double local_dt = std::chrono::duration<double, std::milli>(t1 - t0).count();
         double global_dt = 0.0;
 
-        // 4. Reduce MAX time for THIS SPECIFIC RUN to Rank 0
+        // Reduce MAX time for THIS SPECIFIC RUN to Rank 0
         MPI_Reduce(&local_dt, &global_dt, 1, MPI_DOUBLE, MPI_MAX, 0, A.comm);
 
         if (A.rank == 0) {
@@ -397,65 +402,65 @@ BenchmarkResult SparseMatrixBenchmark::benchmark_spmv(const DistributedMatrix& A
         }
     }
 
-    MPITiming result = {0.0, 0.0, 0.0, 0.0};
+    BenchmarkResult result;
 
-    // 5. Calculate statistics on Rank 0
+    // Calculate statistics on Rank 0
     if (A.rank == 0) {
-        std::vector<double>& t = global_run_times; // alias
-        
-        // Average
-        double sum = std::accumulate(t.begin(), t.end(), 0.0);
-        result.average = sum / t.size();
-
-        // Sort for Percentile/Min/Max
-        std::sort(t.begin(), t.end());
-        
-        result.min_time = t.front();
-        result.max_time = t.back();
-
-        // 90th Percentile
-        size_t idx_90 = static_cast<size_t>(std::ceil(0.9 * t.size())) - 1;
-        if (idx_90 >= t.size()) idx_90 = t.size() - 1;
-        result.percentile_90 = t[idx_90];
+      result.calculate(global_run_times);
+      std::cout << std::left
+      << std::setw(10) << result.percentile_90
+      << std::setw(15) << result.average
+      << std::setw(15) << result.min_time
+      << std::setw(15) << result.max_time
+      << "\n";
     }
 
-    // Broadcast results to all ranks (optional, but good for consistency)
+    // Broadcast results to all ranks (good for consistency)
     // We treat the struct as an array of 4 doubles
     MPI_Bcast(&result, 4, MPI_DOUBLE, 0, A.comm);
 
     return result;
 }
+// =============================================================
+// ================== NEW MPI CSV METHODS ======================
+// =============================================================
 
-
-
-// ================= CSV =================
-void SparseMatrixBenchmark::write_csv_header(const std::string& filename) {
-    std::ofstream file(filename);
+void SparseMatrixBenchmark::writeMPIcsvHeader(const std::string& filename) {
+    std::ofstream file(filename); // This overwrites/creates the file
     if(file.is_open()){
-      file << "matrix,partitioning,mpi_procs,omp_threads,avg_ms,p90_ms,min_ms,max_ms\n";
-      file.close();
-  }else{
-    std::cerr << "Error: Could not open file for wrting: " <<filename << std::endl;
-  }
+        // Added GFLOP/s as a useful metric for study
+        file << "matrix,partitioning,mpi_procs,omp_threads,nnz,"
+             << "p90_ms,avg_ms,min_ms,max_ms,gflops\n";
+        file.close();
+    } else {
+        std::cerr << "Error: Could not open file for writing: " << filename << std::endl;
+    }
 }
 
-void SparseMatrixBenchmark::write_csv_row(const std::string& filename,
-                                 const std::string& matrix,
-                                 const std::string& partitioning,
-                                 int mpi_procs,
-                                 int omp_threads,
-                                 const MPITiming& t) {
-    std::ofstream file(filename, std::ios::app);
+void SparseMatrixBenchmark::writeMPIcsvRow(const std::string& filename, 
+                                              const std::string& matrix,
+                                              const std::string& partitioning, 
+                                              int mpi_procs,
+                                              int omp_threads, 
+                                              int nnz,
+                                              const BenchmarkResult& r) {
+    std::ofstream file(filename, std::ios::app); // Append mode
     if(file.is_open()){ 
-      file << matrix << ","
-      << partitioning << ","
-      << mpi_procs << ","
-      << omp_threads << ","
-      << t.spmv_time_ms << "\n";
-      file.close();
-    }else{
-    std::cerr<<"Error: Could not append to file: " << filename << std::endl;
-  }
+        // Calculate GFLOP/s based on average time
+        // SpMV has 2*NNZ operations (one multiply, one add per non-zero)
+        double gflops = (r.average > 0) ? (2.0 * nnz / (r.average * 1e6)) : 0.0;
+
+        file << matrix << ","
+             << partitioning << ","
+             << mpi_procs << ","
+             << omp_threads << ","
+             << nnz << ","
+             << std::fixed << std::setprecision(6)
+             << r.percentile_90 << ","
+             << r.average << ","
+             << r.min_time << ","
+             << r.max_time << ","
+             << std::setprecision(4) << gflops << "\n";
+        file.close();
+    }
 }
-
-
