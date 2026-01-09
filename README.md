@@ -16,3 +16,11 @@
 
 1D and 2D block layouts for 6 processes. Each color represents a process.
 ![alt text](https://github.com/SoTT507/PARCO-Computing-2026-246783/blob/main/partitioning.png?raw=true)
+
+#### Data Structure
+- Each process should build a local sparse representation, e.g: COO --> CSR conversion
+- Local row index: Compute the local index: e.g. global index (index of the entire matrix) / number of processes (integer part)
+- Local SpMV uses Multi-threading (MPI+X)
+**Reuse of SpMV computation methods developed in Deliverable 1**
+
+
