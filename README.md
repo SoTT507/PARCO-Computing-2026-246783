@@ -23,4 +23,27 @@
 - Local SpMV uses Multi-threading (MPI+X)
 **Reuse of SpMV computation methods developed in Deliverable 1**
 
+#### 1D SpMV Communication Pattern
+- each rank computes y_i for its owned rows
+- Communication required to fetch remote x_j entries if any
+- Identify required remote column indices ("ghost entries")
+- Exchange vector values with other ranks
+- Perform local SpMV
+- (Optional) gather or keep distributed result
 
+#### Performance Evaluation
+##### Strong Scaling
+- Fixed matrix size
+- Increase number of processes up to 128
+- Use real matrices
+
+##### Weak Scaling
+- Increase matrix size with number of processes
+- Use synthetic matrices (Random)
+
+#### Metrics
+- Execution time per SpMV
+- Speedup and efficiency (per rank)
+- FLOPs
+- Communication vs computation breakdown
+- Memory footprint per rank
