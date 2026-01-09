@@ -1,4 +1,4 @@
-# Distributed Sparse Matrix-Vector Multiplication (SpMV) with Multiplication
+# Distributed Sparse Matrix-Vector Multiplication (SpMV) with MPI
 
 ## Project Overview
 #### Assignment:
