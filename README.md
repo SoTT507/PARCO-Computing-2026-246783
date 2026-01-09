@@ -1,31 +1,18 @@
 # Distributed Sparse Matrix-Vector Multiplication (SpMV) with MPI
 
 ## Project Overview
-#### Assignment:
-- **1.** Implement a distributed-memory SpMV using MPI
-- **2.** Focus on data distribution, communication, and scalability
-- **3.** Optional advanced features for bonus points
-- - Parallel reading: each rank reads its own file chunk
-- - MPI-IO implementation
-- - Must handle header and line-boundary alignment correctly
+- Implementation of a distributed-memory SpMV using MPI and focusing on data distribution, communication, and scalability
 
-#### Learnings:
-- **1.** Read and distribute sparse matrices in Matrix Market format
-- **2.** Design 1D or 2D data partitioning strategies
-- **3.** Implement distributed-memory SpMV algorithms
-- **4.** Analyze strong and weak scalability
-
-### Specs:
+### Features:
+#### Matrix Reading:
 - Rank 0 reads the entire Matrix Market file and distributes matrix entries to all processes
-- Parallel reading: each rank reads its own file chunk
-- MPI-IO implementation (MPI_File_read_at_all)
-- Handle header and line-boundary alignment
-
-#### Data Partitioning:
-- 1D and 2D Partitioning
-- Row ownership rule: owner(i)=imodP where P is the number of Processes and i is the row index
+- To parse and read the mmio library has been used (https://math.nist.gov/MatrixMarket/mmio-c.html)
+#### Data Partitioning 
+- 1D module (cyclic) Partitioning
+- Row Ownership rule: owner(i)=imodP where P is the number of Processes and i is the row index
 - Each process stores all nonzeros belonging to its rows
 - Local + global index representations
+- 2D partitioning (process grid)
 
-
-
+1D and 2D block layouts for 6 processes. Each color represents a process.
+![alt text](https://github.com/SoTT507/PARCO-Computing-2026-246783/blob/main/partitioning.png?raw=true)
