@@ -1,26 +1,68 @@
-#pragma once
-#include "pch.h"
+// d_matrix.hpp
+#ifndef D_MATRIX_HPP
+#define D_MATRIX_HPP
+
 #include "s_matrix.hpp"
+#include <mpi.h>
+#include <vector>
 
-enum class Partitioning{
-  OneD,
-  TwoD
+enum class Partitioning {
+    OneD,
+    TwoD
 };
 
-class DistributedMatrix{
+class DistributedMatrix {
 public:
-  CSRMatrix local_csr;
+    // MPI info
+    int rank;
+    int size;
+    MPI_Comm comm;
+    MPI_Comm row_comm;  // For 2D: processes in same row
+    MPI_Comm col_comm;  // For 2D: processes in same column
 
-  int global_rows, global_cols;
-  int local_rows, local_cols;
+    // Matrix dimensions
+    int global_rows, global_cols;
+    int local_rows, local_cols;
 
-  MPI_Comm comm;
-  MPI_Comm row_comm, col_comm;
+    // 2D grid info
+    int dims[2];
+    int coords[2];
+    int Pr, Pc;          // Grid dimensions
+    int my_r, my_c;      // My coordinates
+    int row_start, col_start;  // My block starting indices
 
-  int rank, size;
-  int dims[2], coords[2];
+    // Local CSR matrix
+    CSRMatrix local_csr;
 
-  DistributedMatrix(const COOMatrix& global, Partitioning par, MPI_Comm world = MPI_COMM_WORLD);
+    // Communication buffers for 1D
+    std::vector<int> recvcounts;
+    std::vector<int> displs;
 
-  void spmv(const std::vector<double>& x_global, std::vector<double>& y_local) const;
+    DistributedMatrix(const COOMatrix& global, Partitioning part, MPI_Comm world = MPI_COMM_WORLD);
+
+    // SpMV with timing
+    void spmv(const std::vector<double>& x_global,
+              std::vector<double>& y_local,
+              double* comm_time_ms = nullptr,
+              double* comp_time_ms = nullptr) const;
+
+    // Alternative implementation
+    void spmv_2d_full(const std::vector<double>& x_global,
+                      std::vector<double>& y_local) const;
+
+    // Helper functions
+    void print_partitioning_info() const;
+    size_t get_local_nnz() const;
+    double get_load_imbalance() const;
+
+    size_t getLocalMemoryUsage() const;
+
+    void printInfo() const;
+
+private:
+    // Prevent copying
+    DistributedMatrix(const DistributedMatrix&) = delete;
+    DistributedMatrix& operator=(const DistributedMatrix&) = delete;
 };
+
+#endif
