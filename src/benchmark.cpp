@@ -466,7 +466,7 @@ void SparseMatrixBenchmark::writeMPIcsvHeader(const std::string& filename) {
 // std::ios::trunc ensures we wipe the old file at the start of the job
     std::ofstream file(filename, std::ios::out | std::ios::trunc);
     if(file.is_open()){
-        file << "matrix,partitioning,mpi_procs,omp_threads,nnz,"
+        file << "matrix,partitioning,mpi_procs,omp_threads,nnz,max_mem_mb,"
             << "p90_ms,avg_ms,min_ms,max_ms,avg_comm_ms,avg_comp_ms,gflops\n"; // Added columns
     file.flush();
     file.close();
