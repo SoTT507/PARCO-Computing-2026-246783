@@ -61,6 +61,3 @@ else
   echo "audikw_1"
 fi
 
-https://suitesparse-collection-website.herokuapp.com/MM/GHS_psdef/audikw_1.tar.gz
-# volendo auto
-
