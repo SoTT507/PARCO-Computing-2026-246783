@@ -481,11 +481,10 @@ void SparseMatrixBenchmark::writeMPIcsvRow(const std::string& filename,
                                               int mpi_procs,
                                               int omp_threads,
                                               int nnz,
+                                              double max_mem_mb, // [NEW ARGUMENT]
                                               const BenchmarkResult& r) {
-    std::ofstream file(filename, std::ios::app); // Append mode
+    std::ofstream file(filename, std::ios::app);
     if(file.is_open()){
-        // Calculate GFLOP/s based on average time
-        // SpMV has 2*NNZ operations (one multiply, one add per non-zero)
         double gflops = (r.average > 0) ? (2.0 * nnz / (r.average * 1e6)) : 0.0;
 
         file << matrix << ","
@@ -493,12 +492,13 @@ void SparseMatrixBenchmark::writeMPIcsvRow(const std::string& filename,
              << mpi_procs << ","
              << omp_threads << ","
              << nnz << ","
-             << std::fixed << std::setprecision(6) << r.percentile_90 << ","
+             << std::fixed << std::setprecision(4) << max_mem_mb << "," // [WRITE MEMORY]
+             << std::setprecision(6) << r.percentile_90 << ","
              << r.average << ","
              << r.min_time << ","
              << r.max_time << ","
-             << r.avg_comm_time << ","  // [ADDED]
-             << r.avg_comp_time << ","  // [ADDED]
+             << r.avg_comm_time << ","
+             << r.avg_comp_time << ","
              << std::setprecision(4) << gflops << "\n";
         file.close();
     }

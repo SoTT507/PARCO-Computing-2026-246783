@@ -71,5 +71,6 @@ public:
                                 int mpi_procs,
                                 int omp_threads,
                                 int nnz,
+                                double max_mem_mb,
                                 const BenchmarkResult& result);
 };

@@ -103,12 +103,17 @@ int main(int argc, char **argv) {
 
     // 1D Test - DO NOT CLEAR GLOBAL MATRIX HERE!
     DistributedMatrix A1(global, Partitioning::OneD);
+    
+    size_t local_mem_bytes_1 = A1.getLocalMemoryUsage();
+    size_t max_mem_bytes_1 = 0;
+    MPI_Reduce(&local_mem_bytes_1, &max_mem_bytes_1, 1, MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+    double mem_mb_1 = max_mem_bytes_1 / 1024.0 / 1024.0;
+    
     BenchmarkResult res1 = SparseMatrixBenchmark::benchmark_spmv(A1, x, 10);
     if (rank == 0) {
-      SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "1D", size, omp_threads, global.nnz, res1);
+      SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "1D", size, omp_threads, global.nnz, mem_mb_1, res1);
       std::cout << "    90th percentile: " << res1.percentile_90 << " ms" << std::endl;
     }
-
     // Only test 2D if we have more than 1 process
     if (size > 1) {
       if (rank == 0) {
@@ -117,12 +122,16 @@ int main(int argc, char **argv) {
 
       // 2D Test - NEED THE GLOBAL MATRIX TO STILL BE VALID HERE!
       DistributedMatrix A2(global, Partitioning::TwoD);
+      size_t local_mem_bytes_2 = A2.getLocalMemoryUsage();
+      size_t max_mem_bytes_2 = 0;
+      MPI_Reduce(&local_mem_bytes_2, &max_mem_bytes_2, 1, MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+      double mem_mb_2 = max_mem_bytes_2 / 1024.0 / 1024.0;
+      
       BenchmarkResult res2 = SparseMatrixBenchmark::benchmark_spmv(A2, x, 10);
       if (rank == 0) {
-        SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "2D", size, omp_threads, global.nnz, res2);
+        SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "2D", size, omp_threads, global.nnz, mem_mb_2, res2);
         std::cout << "    90th percentile: " << res2.percentile_90 << " ms" << std::endl;
-      }
-    } else if (rank == 0) {
+      }    } else if (rank == 0) {
       std::cout << "  Skipping 2D partitioning (requires >1 MPI process)" << std::endl;
     }
 

@@ -387,7 +387,6 @@ def create_performance_plots(metrics_df, weak_df=None):
     # Create figure with subplots
     fig = plt.figure(figsize=(20, 15))
     
-    # 1. Execution Time per SpMV
     ax1 = plt.subplot(3, 3, 1)
     for partitioning in metrics_df['partitioning'].unique():
         for matrix in metrics_df['matrix'].unique():
