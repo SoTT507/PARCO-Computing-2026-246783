@@ -208,7 +208,6 @@ int main(int argc, char **argv) {
   //
   //      BenchmarkResult res_weak2 = SparseMatrixBenchmark::benchmark_spmv(A_weak_2d, x_weak, 10);
   //      if (rank == 0) {
-  //          // [FIX 2] Added 'max_mem_mb2' argument
   //          SparseMatrixBenchmark::writeMPIcsvRow(ws_csv, "Random_Weak", "2D", size, omp_threads, weak_global.nnz, max_mem_mb2, res_weak2);
   //      }
   // }
