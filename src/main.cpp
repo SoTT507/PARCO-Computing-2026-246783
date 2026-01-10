@@ -25,11 +25,15 @@ int main(int argc, char **argv) {
   std::vector<std::string> matrices = {
     // "thirdparty/1138_bus/1138_bus.mtx";,
     "thirdparty/audikw_1/audikw_1.mtx",
-    "thirdparty/F1/F1.mtx",
-    "thirdparty/af_shell7/af_shell7.mtx",
-    "thirdparty/mario002/mario002.mtx",
+    // "thirdparty/F1/F1.mtx",
+    // "thirdparty/af_shell7/af_shell7.mtx",
+    // "thirdparty/mario002/mario002.mtx",
     "thirdparty/kron_g500-logn19/kron_g500-logn19.mtx",
-    "thirdparty/msdoor/msdoor.mtx"
+    // "thirdparty/msdoor/msdoor.mtx"
+    "thirdparty/Serena/Serena.mtx",
+    "thirdparty/Freescale1/Freescale1.mtx",
+    "thirdparty/ldoor/ldoor.mtx",
+    "thirdparty/Queen_4147/Queen_4147.mtx"
   };
 
   if (rank == 0) {

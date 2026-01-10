@@ -52,7 +52,7 @@ def calculate_derived_metrics(df):
     """
     df = df.copy()
     
-    # Speedup calculation (for strong scaling)
+    # 1. Speedup calculation (for strong scaling)
     # Base case: single process performance for each matrix
     speedup_data = []
     
@@ -83,6 +83,9 @@ def calculate_derived_metrics(df):
                     # Parallel efficiency (just for MPI)
                     mpi_efficiency = speedup / row['mpi_procs'] if row['mpi_procs'] > 0 else 0
                     
+                    # Efficiency per rank (MPI process)
+                    efficiency_per_rank = speedup / row['mpi_procs'] if row['mpi_procs'] > 0 else 0
+                    
                     # Communication ratio
                     comm_ratio = row['avg_comm_ms'] / row['avg_ms'] if row['avg_ms'] > 0 else 0
                     
@@ -103,11 +106,15 @@ def calculate_derived_metrics(df):
                         'total_cores': total_cores,
                         'nnz': row['nnz'],
                         'avg_ms': row['avg_ms'],
+                        'min_ms': row['min_ms'],
+                        'max_ms': row['max_ms'],
+                        'p90_ms': row['p90_ms'],
                         'avg_comm_ms': row['avg_comm_ms'],
                         'avg_comp_ms': row['avg_comp_ms'],
-                        'gflops': row['gflops'],  # lowercase as in CSV
+                        'gflops': row['gflops'],
                         'speedup': speedup,
                         'efficiency': efficiency,
+                        'efficiency_per_rank': efficiency_per_rank,
                         'mpi_efficiency': mpi_efficiency,
                         'comm_ratio': comm_ratio,
                         'comp_ratio': comp_ratio,
@@ -134,7 +141,7 @@ def analyze_weak_scaling(df):
             
             if len(core_data) > 0:
                 avg_time = core_data['avg_ms'].mean()
-                avg_gflops = core_data['gflops'].mean()  # lowercase as in CSV
+                avg_gflops = core_data['gflops'].mean()
                 avg_comm_ratio = core_data['avg_comm_ms'].mean() / avg_time if avg_time > 0 else 0
                 
                 # Weak scaling efficiency: time should remain constant
@@ -152,7 +159,9 @@ def analyze_weak_scaling(df):
                     'partitioning': partitioning,
                     'mpi_procs': total_cores,
                     'avg_time_ms': avg_time,
-                    'avg_gflops': avg_gflops,  # lowercase as in CSV
+                    'min_time_ms': core_data['min_ms'].mean(),
+                    'max_time_ms': core_data['max_ms'].mean(),
+                    'avg_gflops': avg_gflops,
                     'comm_ratio': avg_comm_ratio,
                     'weak_efficiency_time': weak_efficiency_time,
                     'weak_efficiency_gflops': weak_efficiency_gflops,
@@ -160,6 +169,208 @@ def analyze_weak_scaling(df):
                 })
     
     return pd.DataFrame(weak_analysis)
+
+# ============================================
+# REPORT GENERATION WITH PER-RANK METRICS
+# ============================================
+
+def generate_performance_report(metrics_df, weak_df=None):
+    """
+    Generate comprehensive performance report with per-rank metrics.
+    """
+    report_lines = []
+    
+    report_lines.append("=" * 120)
+    report_lines.append("DISTRIBUTED SpMV PERFORMANCE EVALUATION REPORT")
+    report_lines.append("=" * 120)
+    
+    # Overall statistics
+    report_lines.append(f"\nOVERALL STATISTICS:")
+    report_lines.append(f"- Total measurements: {len(metrics_df)}")
+    report_lines.append(f"- Matrices analyzed: {', '.join(sorted(metrics_df['matrix'].unique()))}")
+    report_lines.append(f"- Partitioning schemes: {list(metrics_df['partitioning'].unique())}")
+    report_lines.append(f"- MPI configurations: {sorted(metrics_df['mpi_procs'].unique())}")
+    report_lines.append(f"- OMP configurations: {sorted(metrics_df['omp_threads'].unique())}")
+    
+    # EXECUTION TIME PER SpMV - Detailed section
+    report_lines.append("\n" + "=" * 120)
+    report_lines.append("EXECUTION TIME PER SpMV (in milliseconds)")
+    report_lines.append("=" * 120)
+    
+    for matrix in metrics_df['matrix'].unique():
+        matrix_data = metrics_df[metrics_df['matrix'] == matrix]
+        report_lines.append(f"\nMatrix: {matrix}")
+        report_lines.append("-" * 120)
+        report_lines.append("Part | MPI | OMP |  Avg Time |  Min Time |  Max Time |  P90 Time | Time StdDev")
+        report_lines.append("-" * 120)
+        
+        for partitioning in matrix_data['partitioning'].unique():
+            part_data = matrix_data[matrix_data['partitioning'] == partitioning]
+            for (mpi, omp), group in part_data.groupby(['mpi_procs', 'omp_threads']):
+                avg_time = group['avg_ms'].mean()
+                min_time = group['min_ms'].mean()
+                max_time = group['max_ms'].mean()
+                p90_time = group['p90_ms'].mean()
+                time_std = group['avg_ms'].std() if len(group) > 1 else 0
+                
+                report_lines.append(f"{partitioning:4} | {mpi:3} | {omp:3} | "
+                                  f"{avg_time:9.2f} | {min_time:9.2f} | "
+                                  f"{max_time:9.2f} | {p90_time:9.2f} | {time_std:10.2f}")
+    
+    # SPEEDUP AND EFFICIENCY PER RANK - Detailed section
+    report_lines.append("\n" + "=" * 120)
+    report_lines.append("SPEEDUP AND EFFICIENCY (PER RANK)")
+    report_lines.append("=" * 120)
+    
+    for matrix in metrics_df['matrix'].unique():
+        matrix_data = metrics_df[metrics_df['matrix'] == matrix]
+        report_lines.append(f"\nMatrix: {matrix}")
+        report_lines.append("-" * 120)
+        report_lines.append("Part | MPI | OMP | Cores |  Speedup | Efficiency | Eff/Rank | MPI Eff | Comm %")
+        report_lines.append("-" * 120)
+        
+        for partitioning in matrix_data['partitioning'].unique():
+            part_data = matrix_data[matrix_data['partitioning'] == partitioning]
+            for (mpi, omp), group in part_data.groupby(['mpi_procs', 'omp_threads']):
+                avg_speedup = group['speedup'].mean()
+                avg_efficiency = group['efficiency'].mean()
+                avg_eff_per_rank = group['efficiency_per_rank'].mean()
+                avg_mpi_eff = group['mpi_efficiency'].mean()
+                avg_comm_ratio = group['comm_ratio'].mean() * 100
+                total_cores = mpi * omp
+                
+                report_lines.append(f"{partitioning:4} | {mpi:3} | {omp:3} | "
+                                  f"{total_cores:5} | {avg_speedup:8.2f} | "
+                                  f"{avg_efficiency:10.2%} | {avg_eff_per_rank:8.2%} | "
+                                  f"{avg_mpi_eff:7.2%} | {avg_comm_ratio:6.1f}")
+    
+    # Performance by partitioning summary
+    report_lines.append("\n" + "=" * 120)
+    report_lines.append("PERFORMANCE BY PARTITIONING SCHEME (SUMMARY)")
+    report_lines.append("=" * 120)
+    
+    for partitioning in metrics_df['partitioning'].unique():
+        part_data = metrics_df[metrics_df['partitioning'] == partitioning]
+        report_lines.append(f"\n{partitioning} PARTITIONING:")
+        
+        # Average performance metrics
+        avg_speedup = part_data['speedup'].mean()
+        avg_efficiency = part_data['efficiency'].mean()
+        avg_eff_per_rank = part_data['efficiency_per_rank'].mean()
+        avg_gflops = part_data['gflops'].mean()
+        avg_comm_ratio = part_data['comm_ratio'].mean() * 100
+        
+        report_lines.append(f"  Average Speedup: {avg_speedup:.2f}x")
+        report_lines.append(f"  Average Efficiency: {avg_efficiency:.2%}")
+        report_lines.append(f"  Average Efficiency per Rank: {avg_eff_per_rank:.2%}")
+        report_lines.append(f"  Average GFLOPs: {avg_gflops:.4f}")
+        report_lines.append(f"  Average Communication Ratio: {avg_comm_ratio:.1f}%")
+        
+        # Best configuration
+        best_idx = part_data['gflops'].idxmax()
+        best_row = part_data.loc[best_idx]
+        report_lines.append(f"\n  Best Performance Configuration:")
+        report_lines.append(f"    Matrix: {best_row['matrix']}")
+        report_lines.append(f"    MPI Processes: {best_row['mpi_procs']}")
+        report_lines.append(f"    OMP Threads: {best_row['omp_threads']}")
+        report_lines.append(f"    Execution Time: {best_row['avg_ms']:.2f} ms")
+        report_lines.append(f"    GFLOPs: {best_row['gflops']:.4f}")
+        report_lines.append(f"    Speedup: {best_row['speedup']:.2f}x")
+        report_lines.append(f"    Efficiency per Rank: {best_row['efficiency_per_rank']:.2%}")
+    
+    # Weak scaling analysis
+    if weak_df is not None and len(weak_df) > 0:
+        report_lines.append("\n" + "=" * 120)
+        report_lines.append("WEAK SCALING ANALYSIS")
+        report_lines.append("=" * 120)
+        
+        for partitioning in weak_df['partitioning'].unique():
+            part_data = weak_df[weak_df['partitioning'] == partitioning]
+            report_lines.append(f"\n{partitioning} PARTITIONING:")
+            report_lines.append("-" * 120)
+            report_lines.append("MPI | Avg Time(ms) | Min Time | Max Time | Weak Eff(Time) | Weak Eff(GFLOPs)")
+            report_lines.append("-" * 120)
+            
+            for _, row in part_data.iterrows():
+                report_lines.append(f"{row['mpi_procs']:3} | {row['avg_time_ms']:12.2f} | "
+                                  f"{row['min_time_ms']:9.2f} | {row['max_time_ms']:9.2f} | "
+                                  f"{row['weak_efficiency_time']:14.2%} | {row['weak_efficiency_gflops']:16.2%}")
+    
+    # Communication vs Computation breakdown
+    report_lines.append("\n" + "=" * 120)
+    report_lines.append("COMMUNICATION VS COMPUTATION BREAKDOWN")
+    report_lines.append("=" * 120)
+    
+    for matrix in metrics_df['matrix'].unique():
+        matrix_data = metrics_df[metrics_df['matrix'] == matrix]
+        report_lines.append(f"\nMatrix: {matrix}")
+        report_lines.append("-" * 120)
+        report_lines.append("Part | MPI | OMP | Comp Time(ms) | Comm Time(ms) | Comm % | Comp %")
+        report_lines.append("-" * 120)
+        
+        for partitioning in matrix_data['partitioning'].unique():
+            part_data = matrix_data[matrix_data['partitioning'] == partitioning]
+            for (mpi, omp), group in part_data.groupby(['mpi_procs', 'omp_threads']):
+                avg_comp = group['avg_comp_ms'].mean()
+                avg_comm = group['avg_comm_ms'].mean()
+                comm_percent = group['comm_ratio'].mean() * 100
+                comp_percent = group['comp_ratio'].mean() * 100
+                
+                report_lines.append(f"{partitioning:4} | {mpi:3} | {omp:3} | "
+                                  f"{avg_comp:13.2f} | {avg_comm:13.2f} | "
+                                  f"{comm_percent:6.1f} | {comp_percent:6.1f}")
+    
+    # Memory footprint per rank
+    report_lines.append("\n" + "=" * 120)
+    report_lines.append("MEMORY FOOTPRINT PER RANK")
+    report_lines.append("=" * 120)
+    
+    for matrix in metrics_df['matrix'].unique():
+        matrix_data = metrics_df[metrics_df['matrix'] == matrix]
+        report_lines.append(f"\nMatrix: {matrix} (NNZ: {matrix_data['nnz'].iloc[0]:,})")
+        report_lines.append("-" * 120)
+        report_lines.append("Part | MPI | OMP | Mem/Rank(MB) | Mem/Core(MB)")
+        report_lines.append("-" * 120)
+        
+        for partitioning in matrix_data['partitioning'].unique():
+            part_data = matrix_data[matrix_data['partitioning'] == partitioning]
+            for (mpi, omp), group in part_data.groupby(['mpi_procs', 'omp_threads']):
+                avg_mem_per_rank = (group['nnz'].iloc[0] * 8 * 2) / (1024**2) / mpi
+                avg_mem_per_core = group['memory_per_core_mb'].mean()
+                
+                report_lines.append(f"{partitioning:4} | {mpi:3} | {omp:3} | "
+                                  f"{avg_mem_per_rank:12.2f} | {avg_mem_per_core:13.2f}")
+    
+    # Save report to file
+    report_text = "\n".join(report_lines)
+    with open("performance_report.txt", "w") as f:
+        f.write(report_text)
+    
+    # Print key sections to console
+    print("\n" + "=" * 80)
+    print("KEY PERFORMANCE METRICS SUMMARY")
+    print("=" * 80)
+    
+    print("\nEXECUTION TIME PER SpMV (ms):")
+    print("-" * 80)
+    print("Matrix           | Part | MPI | OMP | Avg Time | Speedup | Eff/Rank")
+    print("-" * 80)
+    for matrix in metrics_df['matrix'].unique():
+        matrix_data = metrics_df[metrics_df['matrix'] == matrix]
+        for partitioning in matrix_data['partitioning'].unique():
+            part_data = matrix_data[matrix_data['partitioning'] == partitioning]
+            # Get the configuration with highest MPI count for comparison
+            max_mpi = part_data['mpi_procs'].max()
+            max_config = part_data[part_data['mpi_procs'] == max_mpi]
+            if len(max_config) > 0:
+                row = max_config.iloc[0]
+                print(f"{matrix:16} | {partitioning:4} | {row['mpi_procs']:3} | "
+                      f"{row['omp_threads']:3} | {row['avg_ms']:9.2f} | "
+                      f"{row['speedup']:8.2f} | {row['efficiency_per_rank']:8.2%}")
+    
+    print(f"\nDetailed report saved to performance_report.txt ({len(report_lines)} lines)")
+    
+    return report_text
 
 # ============================================
 # VISUALIZATION - USING CORRECT COLUMN NAMES
@@ -176,56 +387,56 @@ def create_performance_plots(metrics_df, weak_df=None):
     # Create figure with subplots
     fig = plt.figure(figsize=(20, 15))
     
-    # Strong Scaling: Speedup vs Cores
+    # 1. Execution Time per SpMV
     ax1 = plt.subplot(3, 3, 1)
     for partitioning in metrics_df['partitioning'].unique():
         for matrix in metrics_df['matrix'].unique():
             subset = metrics_df[(metrics_df['partitioning'] == partitioning) & 
                                (metrics_df['matrix'] == matrix)]
             if len(subset) > 1:
-                ax1.plot(subset['total_cores'], subset['speedup'], 
+                ax1.plot(subset['total_cores'], subset['avg_ms'], 
                         marker='o', linestyle='-', 
                         label=f'{matrix[:5]}-{partitioning}', alpha=0.7)
-    ax1.plot(metrics_df['total_cores'], metrics_df['total_cores'], 
-            'k--', label='Ideal', alpha=0.5)
     ax1.set_xlabel('Total Cores (MPI × OMP)')
-    ax1.set_ylabel('Speedup')
-    ax1.set_title('Strong Scaling: Speedup')
+    ax1.set_ylabel('Execution Time (ms)')
+    ax1.set_title('Execution Time per SpMV')
     ax1.legend(loc='best', fontsize=8)
     ax1.grid(True, alpha=0.3)
     
-    # Strong Scaling: Efficiency vs Cores
+    # 2. Speedup per Rank
     ax2 = plt.subplot(3, 3, 2)
     for partitioning in metrics_df['partitioning'].unique():
         subset = metrics_df[metrics_df['partitioning'] == partitioning]
         if len(subset) > 0:
-            efficiency_by_cores = subset.groupby('total_cores')['efficiency'].mean()
-            ax2.plot(efficiency_by_cores.index, efficiency_by_cores.values, 
+            speedup_by_mpi = subset.groupby('mpi_procs')['speedup'].mean()
+            ax2.plot(speedup_by_mpi.index, speedup_by_mpi.values, 
                     marker='s', linestyle='-', linewidth=2, 
                     label=partitioning, alpha=0.8)
-    ax2.axhline(y=1.0, color='k', linestyle='--', alpha=0.5, label='Ideal')
-    ax2.set_xlabel('Total Cores (MPI × OMP)')
-    ax2.set_ylabel('Efficiency')
-    ax2.set_title('Strong Scaling: Efficiency')
+    ax2.plot(metrics_df['mpi_procs'].unique(), metrics_df['mpi_procs'].unique(), 
+            'k--', label='Ideal', alpha=0.5)
+    ax2.set_xlabel('MPI Processes')
+    ax2.set_ylabel('Speedup')
+    ax2.set_title('Speedup per MPI Rank')
     ax2.legend()
     ax2.grid(True, alpha=0.3)
     
-    # GFLOPs vs Cores
+    # 3. Efficiency per Rank
     ax3 = plt.subplot(3, 3, 3)
     for partitioning in metrics_df['partitioning'].unique():
         subset = metrics_df[metrics_df['partitioning'] == partitioning]
         if len(subset) > 0:
-            gflops_by_cores = subset.groupby('total_cores')['gflops'].mean()  # lowercase
-            ax3.plot(gflops_by_cores.index, gflops_by_cores.values, 
+            eff_by_mpi = subset.groupby('mpi_procs')['efficiency_per_rank'].mean()
+            ax3.plot(eff_by_mpi.index, eff_by_mpi.values, 
                     marker='^', linestyle='-', linewidth=2,
                     label=partitioning, alpha=0.8)
-    ax3.set_xlabel('Total Cores (MPI × OMP)')
-    ax3.set_ylabel('GFLOPs')
-    ax3.set_title('Performance: GFLOPs')
+    ax3.axhline(y=1.0, color='k', linestyle='--', alpha=0.5, label='Ideal')
+    ax3.set_xlabel('MPI Processes')
+    ax3.set_ylabel('Efficiency per Rank')
+    ax3.set_title('Efficiency per MPI Rank')
     ax3.legend()
     ax3.grid(True, alpha=0.3)
     
-    # Communication vs Computation Breakdown
+    # 4. Communication vs Computation Breakdown
     ax4 = plt.subplot(3, 3, 4)
     comm_data = []
     for partitioning in metrics_df['partitioning'].unique():
@@ -244,7 +455,7 @@ def create_performance_plots(metrics_df, weak_df=None):
     ax4.legend(['Communication', 'Computation'])
     ax4.grid(True, alpha=0.3, axis='y')
     
-    # Memory per Core
+    # 5. Memory per Rank
     ax5 = plt.subplot(3, 3, 5)
     memory_data = []
     for partitioning in metrics_df['partitioning'].unique():
@@ -252,24 +463,25 @@ def create_performance_plots(metrics_df, weak_df=None):
             subset = metrics_df[(metrics_df['partitioning'] == partitioning) & 
                                (metrics_df['mpi_procs'] == mpi_procs)]
             if len(subset) > 0:
-                avg_memory = subset['memory_per_core_mb'].mean()
+                # Calculate memory per rank (not per core)
+                avg_mem_per_rank = (subset['nnz'].iloc[0] * 8 * 2) / (1024**2) / mpi_procs
                 memory_data.append({'Partitioning': partitioning, 
                                    'MPI Processes': mpi_procs,
-                                   'Memory per Core (MB)': avg_memory})
+                                   'Memory per Rank (MB)': avg_mem_per_rank})
     
     if memory_data:
         memory_df = pd.DataFrame(memory_data)
         for partitioning in memory_df['Partitioning'].unique():
             part_memory = memory_df[memory_df['Partitioning'] == partitioning]
-            ax5.plot(part_memory['MPI Processes'], part_memory['Memory per Core (MB)'],
+            ax5.plot(part_memory['MPI Processes'], part_memory['Memory per Rank (MB)'],
                     marker='o', linestyle='-', label=partitioning)
     ax5.set_xlabel('MPI Processes')
-    ax5.set_ylabel('Memory per Core (MB)')
-    ax5.set_title('Memory Footprint per Core')
+    ax5.set_ylabel('Memory per Rank (MB)')
+    ax5.set_title('Memory Footprint per Rank')
     ax5.legend()
     ax5.grid(True, alpha=0.3)
     
-    # Weak Scaling Plot (if available)
+    # 6. Weak Scaling Plot (if available)
     if weak_df is not None and len(weak_df) > 0:
         ax6 = plt.subplot(3, 3, 6)
         for partitioning in weak_df['partitioning'].unique():
@@ -287,49 +499,50 @@ def create_performance_plots(metrics_df, weak_df=None):
         ax6.legend()
         ax6.grid(True, alpha=0.3)
     
-    # Heatmap: Performance by MPI × OMP configuration
+    # 7. GFLOPs Performance
     ax7 = plt.subplot(3, 3, 7)
-    if len(metrics_df) > 0:
-        # Create pivot table for heatmap
-        pivot_data = metrics_df.pivot_table(
-            values='gflops',  # lowercase
-            index='mpi_procs',
-            columns='omp_threads',
-            aggfunc='mean'
-        )
-        if not pivot_data.empty:
-            sns.heatmap(pivot_data, annot=True, fmt='.3f', cmap='YlOrRd', ax=ax7)
-            ax7.set_title('GFLOPs by MPI × OMP Configuration')
-            ax7.set_xlabel('OMP Threads')
-            ax7.set_ylabel('MPI Processes')
+    for partitioning in metrics_df['partitioning'].unique():
+        subset = metrics_df[metrics_df['partitioning'] == partitioning]
+        if len(subset) > 0:
+            gflops_by_mpi = subset.groupby('mpi_procs')['gflops'].mean()
+            ax7.plot(gflops_by_mpi.index, gflops_by_mpi.values, 
+                    marker='o', linestyle='-', linewidth=2,
+                    label=partitioning, alpha=0.8)
+    ax7.set_xlabel('MPI Processes')
+    ax7.set_ylabel('GFLOPs')
+    ax7.set_title('GFLOPs Performance')
+    ax7.legend()
+    ax7.grid(True, alpha=0.3)
     
-    # Comparison of 1D vs 2D partitioning - FIXED
+    # 8. Execution Time Distribution
     ax8 = plt.subplot(3, 3, 8)
-    comparison_data = []
-    for mpi_procs in sorted(metrics_df['mpi_procs'].unique()):
-        for partitioning in ['1D', '2D']:
-            subset = metrics_df[(metrics_df['partitioning'] == partitioning) & 
-                               (metrics_df['mpi_procs'] == mpi_procs)]
-            if len(subset) > 0:
-                avg_gflops = subset['gflops'].mean()  # lowercase
-                comparison_data.append({'MPI Processes': mpi_procs,
-                                       'Partitioning': partitioning,
-                                       'GFLOPs': avg_gflops})  # Capitalized for display
-
-    if comparison_data:
-        comparison_df = pd.DataFrame(comparison_data)
-        for partitioning in comparison_df['Partitioning'].unique():
-            part_data = comparison_df[comparison_df['Partitioning'] == partitioning]
-            # Using the correct column name from comparison_data
-            ax8.plot(part_data['MPI Processes'], part_data['GFLOPs'],
-                    marker='o', linestyle='-', label=partitioning)
-        ax8.set_xlabel('MPI Processes')
-        ax8.set_ylabel('Average GFLOPs')
-        ax8.set_title('1D vs 2D Partitioning Comparison')
-        ax8.legend()
-        ax8.grid(True, alpha=0.3)
+    time_data = []
+    for partitioning in metrics_df['partitioning'].unique():
+        subset = metrics_df[metrics_df['partitioning'] == partitioning]
+        if len(subset) > 0:
+            time_data.append({
+                'Partitioning': partitioning,
+                'Avg Time': subset['avg_ms'].mean(),
+                'Min Time': subset['min_ms'].mean(),
+                'Max Time': subset['max_ms'].mean()
+            })
     
-    # Communication Time Analysis
+    if time_data:
+        time_df = pd.DataFrame(time_data)
+        x = np.arange(len(time_df))
+        width = 0.25
+        ax8.bar(x - width, time_df['Min Time'], width, label='Min Time', color='#2ecc71')
+        ax8.bar(x, time_df['Avg Time'], width, label='Avg Time', color='#3498db')
+        ax8.bar(x + width, time_df['Max Time'], width, label='Max Time', color='#e74c3c')
+        ax8.set_xlabel('Partitioning')
+        ax8.set_ylabel('Time (ms)')
+        ax8.set_title('Execution Time Distribution')
+        ax8.set_xticks(x)
+        ax8.set_xticklabels(time_df['Partitioning'])
+        ax8.legend()
+        ax8.grid(True, alpha=0.3, axis='y')
+    
+    # 9. Communication Time Analysis
     ax9 = plt.subplot(3, 3, 9)
     comm_time_data = []
     for partitioning in metrics_df['partitioning'].unique():
@@ -364,101 +577,6 @@ def create_performance_plots(metrics_df, weak_df=None):
     plt.show()
     
     print("Performance plots saved to performance_analysis.png")
-
-# ============================================
-# REPORT GENERATION
-# ============================================
-
-def generate_performance_report(metrics_df, weak_df=None):
-    """
-    Generate comprehensive performance report.
-    """
-    report_lines = []
-    
-    report_lines.append("=" * 100)
-    report_lines.append("DISTRIBUTED SpMV PERFORMANCE EVALUATION REPORT")
-    report_lines.append("=" * 100)
-    
-    # Overall statistics
-    report_lines.append(f"\nOVERALL STATISTICS:")
-    report_lines.append(f"- Total measurements: {len(metrics_df)}")
-    report_lines.append(f"- Matrices analyzed: {', '.join(sorted(metrics_df['matrix'].unique()))}")
-    report_lines.append(f"- Partitioning schemes: {list(metrics_df['partitioning'].unique())}")
-    report_lines.append(f"- MPI configurations: {sorted(metrics_df['mpi_procs'].unique())}")
-    report_lines.append(f"- OMP configurations: {sorted(metrics_df['omp_threads'].unique())}")
-    
-    # Performance by partitioning
-    report_lines.append("\n" + "=" * 100)
-    report_lines.append("PERFORMANCE BY PARTITIONING SCHEME")
-    report_lines.append("=" * 100)
-    
-    for partitioning in metrics_df['partitioning'].unique():
-        part_data = metrics_df[metrics_df['partitioning'] == partitioning]
-        report_lines.append(f"\n{partitioning} PARTITIONING:")
-        
-        # Average performance metrics
-        avg_speedup = part_data['speedup'].mean()
-        avg_efficiency = part_data['efficiency'].mean()
-        avg_gflops = part_data['gflops'].mean()  # lowercase
-        avg_comm_ratio = part_data['comm_ratio'].mean() * 100
-        
-        report_lines.append(f"  Average Speedup: {avg_speedup:.2f}x")
-        report_lines.append(f"  Average Efficiency: {avg_efficiency:.2%}")
-        report_lines.append(f"  Average GFLOPs: {avg_gflops:.4f}")
-        report_lines.append(f"  Average Communication Ratio: {avg_comm_ratio:.1f}%")
-        
-        # Best configuration
-        best_idx = part_data['gflops'].idxmax()  # lowercase
-        best_row = part_data.loc[best_idx]
-        report_lines.append(f"\n  Best Configuration:")
-        report_lines.append(f"    MPI Processes: {best_row['mpi_procs']}")
-        report_lines.append(f"    OMP Threads: {best_row['omp_threads']}")
-        report_lines.append(f"    Matrix: {best_row['matrix']}")
-        report_lines.append(f"    GFLOPs: {best_row['gflops']:.4f}")  # lowercase
-        report_lines.append(f"    Speedup: {best_row['speedup']:.2f}x")
-    
-    # Weak scaling analysis
-    if weak_df is not None and len(weak_df) > 0:
-        report_lines.append("\n" + "=" * 100)
-        report_lines.append("WEAK SCALING ANALYSIS")
-        report_lines.append("=" * 100)
-        
-        for partitioning in weak_df['partitioning'].unique():
-            part_data = weak_df[weak_df['partitioning'] == partitioning]
-            report_lines.append(f"\n{partitioning} PARTITIONING:")
-            
-            for _, row in part_data.iterrows():
-                report_lines.append(f"\n  MPI Processes: {row['mpi_procs']}")
-                report_lines.append(f"    Time: {row['avg_time_ms']:.2f} ms")
-                report_lines.append(f"    Weak Scaling Efficiency (Time): {row['weak_efficiency_time']:.2%}")
-                report_lines.append(f"    Weak Scaling Efficiency (GFLOPs): {row['weak_efficiency_gflops']:.2%}")
-                report_lines.append(f"    Communication Ratio: {row['comm_ratio']:.1%}")
-    
-    # Detailed performance table
-    report_lines.append("\n" + "=" * 100)
-    report_lines.append("DETAILED PERFORMANCE METRICS")
-    report_lines.append("=" * 100)
-    report_lines.append("\nMatrix | Part | MPI | OMP | Cores | Time(ms) | GFLOPs | Speedup | Efficiency | Comm% | Mem/Core(MB)")
-    report_lines.append("-" * 100)
-    
-    for _, row in metrics_df.iterrows():
-        report_lines.append(f"{row['matrix'][:10]:10} | {row['partitioning']:4} | "
-                          f"{row['mpi_procs']:3} | {row['omp_threads']:3} | "
-                          f"{row['total_cores']:5} | {row['avg_ms']:8.2f} | "
-                          f"{row['gflops']:7.4f} | {row['speedup']:8.2f} | "
-                          f"{row['efficiency']:10.2%} | {row['comm_ratio']*100:5.1f} | "
-                          f"{row['memory_per_core_mb']:12.2f}")
-    
-    # Save report to file
-    report_text = "\n".join(report_lines)
-    with open("performance_report.txt", "w") as f:
-        f.write(report_text)
-    
-    print(report_text[:2000])  # Print first part of report
-    print(f"\n... (truncated) ...")
-    print(f"\nDetailed report saved to performance_report.txt")
-    
-    return report_text
 
 # ============================================
 # MAIN EXECUTION
