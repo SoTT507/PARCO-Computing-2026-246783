@@ -33,7 +33,9 @@ int main(int argc, char **argv) {
     "thirdparty/Serena/Serena.mtx",
     "thirdparty/Freescale1/Freescale1.mtx",
     "thirdparty/ldoor/ldoor.mtx",
-    "thirdparty/Queen_4147/Queen_4147.mtx"
+    // "thirdparty/Queen_4147/Queen_4147.mtx",
+    "thirdparty/G3_circuit/G3_circuit.mtx",
+    "thirdparty/Transport/Transport.mtx"
   };
 
   if (rank == 0) {

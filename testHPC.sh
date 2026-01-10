@@ -39,7 +39,7 @@ cd ..
 
 TOTAL_CORES=$(nproc)
 
-for MPI_PROCS in 1 2 4 8
+for MPI_PROCS in 1 2 4 8 16 32 64 128
   do
     OMP_THREADS=$((TOTAL_CORES / MPI_PROCS))
     if [ $OMP_THREADS -lt 1 ]; then

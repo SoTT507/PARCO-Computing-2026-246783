@@ -100,3 +100,23 @@ if [ ! -d "Freescale1" ]; then
 else
   echo "Freescale1"
 fi
+
+if [ ! -d "G3_circuit" ]; then
+  echo "Downloading G3_circuit..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/AMD/G3_circuit.tar.gz
+  tar -xzf G3_circuit.tar.gz
+  rm G3_circuit.tar.gz
+  ls G3_circuit/G3_circuit.mtx
+else
+  echo "G3_circuit"
+fi
+
+if [ ! -d "Transport" ]; then
+  echo "Downloading Transport..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/Janna/Transport.tar.gz
+  tar -xzf Transport.tar.gz
+  rm Transport.tar.gz
+  ls Transport/Transport.mtx
+else
+  echo "Transport"
+fi
