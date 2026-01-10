@@ -44,14 +44,16 @@ do
     OMP_THREADS=$((TOTAL_CORES / MPI_PROCS))
 
     export OMP_NUM_THREADS=$OMP_THREADS
-    export OMP_PROC_BIND=close
-    export OMP_PLACES=cores
+    # export OMP_PROC_BIND=close
+    # export OMP_PLACES=cores
 
     echo "MPI=$MPI_PROCS  OMP=$OMP_THREADS"
 
-    mpiexec -n $MPI_PROCS --oversubscribe ./d2_SpMV
+    mpiexec --oversubscribe -n $MPI_PROCS ./d2_SpMV
 
     RESULT_NAME="plots/result_MPI${MPI_PROCS}_OMP${OMP_THREADS}.csv"
+    WRESULT_NAME="plots/weak_scaling_MPI${MPI_PROCS}_OMP${OMP_THREADS}.csv"
     cp mpi_spmv_results.csv "$RESULT_NAME"
-    rm mpi_spmv_results.csv
-done
+    cp mpi_weak_scaling.csv "$WRESULT_NAME"
+  done
+
