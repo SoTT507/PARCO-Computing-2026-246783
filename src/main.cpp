@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
   }
 
   // ============================================================
-  //                    WEAK SCALING BENCHMARK
+                     // WEAK SCALING BENCHMARK
   // ============================================================
   // MPI_Barrier(MPI_COMM_WORLD);
   // if (rank == 0) {
@@ -192,31 +192,31 @@ int main(int argc, char **argv) {
   // BenchmarkResult res_weak = SparseMatrixBenchmark::benchmark_spmv(A_weak, x_weak, 10);
   //
   // if (rank == 0) {
-//       SparseMatrixBenchmark::writeMPIcsvRow(ws_csv, "Random_Weak", "1D", size, omp_threads, weak_global.nnz, max_mem_mb, res_weak);
-//       std::cout << "    Time: " << res_weak.average << " ms | Max Mem per Rank: " 
-//                 << max_mem_mb << " MB" << std::endl;
-//   }
-//
-//   // Optional: Run 2D Weak Scaling if size > 1
-//   if (size > 1) {
-//        DistributedMatrix A_weak_2d(weak_global, Partitioning::TwoD);
-//
-//        size_t local_mem2 = A_weak_2d.getLocalMemoryUsage();
-//        size_t max_mem2 = 0;
-//        MPI_Reduce(&local_mem2, &max_mem2, 1, MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
-//        double max_mem_mb2 = max_mem2 / 1024.0 / 1024.0;
-//
-//        BenchmarkResult res_weak2 = SparseMatrixBenchmark::benchmark_spmv(A_weak_2d, x_weak, 10);
-//        if (rank == 0) {
-//            // [FIX 2] Added 'max_mem_mb2' argument
-//            SparseMatrixBenchmark::writeMPIcsvRow(ws_csv, "Random_Weak", "2D", size, omp_threads, weak_global.nnz, max_mem_mb2, res_weak2);
-//        }
-//   }
-//
-//   if (rank == 0) {
-//     std::cout << "\n ============= BENCHMARK COMPLETE ============= " << std::endl;
-//   }
-//
+  //     SparseMatrixBenchmark::writeMPIcsvRow(ws_csv, "Random_Weak", "1D", size, omp_threads, weak_global.nnz, max_mem_mb, res_weak);
+  //     std::cout << "    Time: " << res_weak.average << " ms | Max Mem per Rank: " 
+  //               << max_mem_mb << " MB" << std::endl;
+  // }
+  //
+  // // Optional: Run 2D Weak Scaling if size > 1
+  // if (size > 1) {
+  //      DistributedMatrix A_weak_2d(weak_global, Partitioning::TwoD);
+  //
+  //      size_t local_mem2 = A_weak_2d.getLocalMemoryUsage();
+  //      size_t max_mem2 = 0;
+  //      MPI_Reduce(&local_mem2, &max_mem2, 1, MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+  //      double max_mem_mb2 = max_mem2 / 1024.0 / 1024.0;
+  //
+  //      BenchmarkResult res_weak2 = SparseMatrixBenchmark::benchmark_spmv(A_weak_2d, x_weak, 10);
+  //      if (rank == 0) {
+  //          // [FIX 2] Added 'max_mem_mb2' argument
+  //          SparseMatrixBenchmark::writeMPIcsvRow(ws_csv, "Random_Weak", "2D", size, omp_threads, weak_global.nnz, max_mem_mb2, res_weak2);
+  //      }
+  // }
+
+  if (rank == 0) {
+    std::cout << "\n ============= BENCHMARK COMPLETE ============= " << std::endl;
+  }
+
   MPI_Finalize();
   return 0;
 }
