@@ -23,7 +23,8 @@ int main(int argc, char **argv) {
   }
 
   std::vector<std::string> matrices = {
-    // "thirdparty/1138_bus/1138_bus.mtx",
+    // "thirdparty/1138_bus/1138_bus.mtx";,
+    "thirdparty/audikw_1/audikw_1.mtx"
     "thirdparty/F1/F1.mtx",
     "thirdparty/af_shell7/af_shell7.mtx",
     "thirdparty/mario002/mario002.mtx",

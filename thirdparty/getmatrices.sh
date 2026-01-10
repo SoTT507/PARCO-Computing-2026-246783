@@ -50,5 +50,17 @@ else
   echo "msdoor"
 fi
 
+
+if [ ! -d "audikw_1" ]; then
+  echo "Downloading audikw_1..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/GHS_psdef/audikw_1.tar.gz
+  tar -xzf audikw_1.tar.gz
+  rm audikw_1.tar.gz
+  ls audikw_1/audikw_1.mtx
+else
+  echo "audikw_1"
+fi
+
+https://suitesparse-collection-website.herokuapp.com/MM/GHS_psdef/audikw_1.tar.gz
 # volendo auto
 
