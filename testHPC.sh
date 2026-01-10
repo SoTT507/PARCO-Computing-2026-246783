@@ -37,9 +37,9 @@ cd thirdparty
 ./getmatrices.sh
 cd ..
 
-TOTAL_CORES=$(nproc)
+TOTAL_CORES=128
 
-for MPI_PROCS in 1 2 4 8 16 32
+for MPI_PROCS in 1 2 4 8 16 32 64 128
   do
     OMP_THREADS=$((TOTAL_CORES / MPI_PROCS))
     if [ $OMP_THREADS -lt 1 ]; then
@@ -48,7 +48,7 @@ for MPI_PROCS in 1 2 4 8 16 32
 
     export OMP_NUM_THREADS=$OMP_THREADS
     export OMP_PROC_BIND=spread
-    export OMP_PLACES=cores
+    # export OMP_PLACES=cores
 
     echo "MPI=$MPI_PROCS  OMP=$OMP_THREADS"
     mpiexec --oversubscribe -n $MPI_PROCS ./d2_SpMV
