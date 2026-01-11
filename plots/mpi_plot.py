@@ -31,7 +31,6 @@ for matrix in strong_data['matrix'].unique():
         min_mpi = matrix_data['mpi_procs'].min()
         baselines[matrix] = matrix_data[matrix_data['mpi_procs'] == min_mpi]['avg_ms'].iloc[0]
 
-# Define consistent colors for each matrix
 matrix_colors = {}
 matrices = list(strong_data['matrix'].unique())
 colors = plt.cm.Set1(np.linspace(0, 1, len(matrices)))  # Different colors for each matrix
@@ -106,7 +105,7 @@ for matrix in strong_data['matrix'].unique():
                 speedups.append(speedup)
                 mpi_values.append(mpi)
             
-            plt.plot(mpi_values, speedups, marker='s', linestyle=':',  # Dotted line
+            plt.plot(mpi_values, speedups, marker='s', linestyle=':', 
                     color=matrix_color, label=f'{matrix} - 2D', linewidth=2)
 
 # Ideal speedup line
@@ -157,7 +156,7 @@ for matrix in strong_data['matrix'].unique():
                 efficiencies.append(efficiency)
                 mpi_values.append(mpi)
             
-            plt.plot(mpi_values, efficiencies, marker='s', linestyle=':',  # Dotted line
+            plt.plot(mpi_values, efficiencies, marker='s', linestyle=':',
                     color=matrix_color, label=f'{matrix} - 2D', linewidth=2)
 
 plt.axhline(y=1.0, color='k', linestyle='--', label='Ideal', alpha=0.5)
@@ -188,7 +187,7 @@ for matrix in strong_data['matrix'].unique():
     if len(part_data) > 0:
         gflops_by_mpi = part_data.groupby('mpi_procs')['gflops'].mean()
         plt.plot(gflops_by_mpi.index, gflops_by_mpi.values, 
-                marker='s', linestyle=':', color=matrix_color,  # Dotted line
+                marker='s', linestyle=':', color=matrix_color,
                 label=f'{matrix} - 2D', linewidth=2)
 
 plt.xlabel('MPI Processes')
