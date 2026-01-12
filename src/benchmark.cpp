@@ -396,7 +396,7 @@ BenchmarkResult SparseMatrixBenchmark::benchmark_spmv(const DistributedMatrix& A
         double comm_time = 0.0, comp_time = 0.0;
         A.spmv(x, y, &comm_time, &comp_time);
 
-        MPI_Barrier(A.comm);
+        // MPI_Barrier(A.comm);
         auto t1 = std::chrono::high_resolution_clock::now();
 
         double local_dt = std::chrono::duration<double, std::milli>(t1 - t0).count();
