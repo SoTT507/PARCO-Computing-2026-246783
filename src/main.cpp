@@ -3,141 +3,186 @@
 #include "pch.h"
 
 int main(int argc, char **argv) {
-  MPI_Init(&argc, &argv);
+    MPI_Init(&argc, &argv);
 
-  int rank, size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-  if (rank == 0) {
-    std::cout << " ============= INITIATING BENCHMARK ============= "
-              << std::endl;
-  }
-
-  // Correct OpenMP thread count
-  int omp_threads = 1;
-  #pragma omp parallel
-  {
-  #pragma omp single
-    omp_threads = omp_get_num_threads();
-  }
-
-  std::vector<std::string> matrices = {
-    // "thirdparty/1138_bus/1138_bus.mtx";,
-    "thirdparty/audikw_1/audikw_1.mtx",
-    // "thirdparty/F1/F1.mtx",
-    // "thirdparty/af_shell7/af_shell7.mtx",
-    // "thirdparty/mario002/mario002.mtx",
-    "thirdparty/kron_g500-logn19/kron_g500-logn19.mtx",
-    // "thirdparty/msdoor/msdoor.mtx"
-    "thirdparty/Serena/Serena.mtx",
-    "thirdparty/Freescale1/Freescale1.mtx",
-    "thirdparty/ldoor/ldoor.mtx",
-    // "thirdparty/Queen_4147/Queen_4147.mtx",
-    "thirdparty/G3_circuit/G3_circuit.mtx",
-    "thirdparty/Transport/Transport.mtx"
-  };
-
-  if (rank == 0) {
-    std::cout << " ============= BENCHMARK: MPI + OMP GUIDED ============= "
-              << std::endl;
-    std::cout << " MPI Ranks: " << size << " | OMP Threads: " << omp_threads << std::endl;
-  }
-
-  std::string csv_file = "mpi_spmv_results.csv";
-  if (rank == 0) {
-    std::cout << "--> Initializing CSV: " << csv_file << std::endl;
-    SparseMatrixBenchmark::writeMPIcsvHeader(csv_file);
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  for (const auto &path : matrices) {
-    // Extract matrix name from path
-    std::filesystem::path fs_path(path);
-    std::string matrix_name = fs_path.stem().string();
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     if (rank == 0) {
-      std::cout << "\nProcessing matrix: " << matrix_name << " (" << path << ")" << std::endl;
+        std::cout << " ============= INITIATING BENCHMARK ============= " << std::endl;
     }
 
-    COOMatrix global;
+    // Get OpenMP thread count
+    int omp_threads = 1;
+    #pragma omp parallel
+    {
+        #pragma omp single
+        omp_threads = omp_get_num_threads();
+    }
+
+    std::vector<std::string> matrices = {
+        "thirdparty/1138_bus/1138_bus.mtx"    
+        // "thirdparty/audikw_1/audikw_1.mtx",
+        // "thirdparty/kron_g500-logn19/kron_g500-logn19.mtx",
+        // "thirdparty/Serena/Serena.mtx",
+        // "thirdparty/Freescale1/Freescale1.mtx",
+        // "thirdparty/ldoor/ldoor.mtx",
+        // "thirdparty/G3_circuit/G3_circuit.mtx",
+        // "thirdparty/Transport/Transport.mtx"
+    };
 
     if (rank == 0) {
-      try {
-        global.readMatrixMarket(path);
-        if (rank == 0) {
-          std::cout << "  Matrix loaded: " << global.rows << " x " << global.cols
-                    << ", nnz = " << global.nnz << std::endl;
-        }
-      } catch (const std::exception& e) {
-        std::cerr << "Error loading matrix " << path << ": " << e.what() << std::endl;
-        continue;
-      }
+        std::cout << " ============= BENCHMARK: MPI + OMP GUIDED ============= " << std::endl;
+        std::cout << " MPI Ranks: " << size << " | OMP Threads: " << omp_threads << std::endl;
     }
 
-    // Broadcast matrix dimensions
-    MPI_Bcast(&global.rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&global.cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&global.nnz, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-    // Resize vectors on non-root ranks
-    if (rank != 0) {
-      global.row_idx.resize(global.nnz);
-      global.col_idx.resize(global.nnz);
-      global.values.resize(global.nnz);
+    std::string csv_file = "mpi_spmv_results.csv";
+    if (rank == 0) {
+        std::cout << "--> Initializing CSV: " << csv_file << std::endl;
+        SparseMatrixBenchmark::writeMPIcsvHeader(csv_file);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    // Broadcast matrix data
-    MPI_Bcast(global.row_idx.data(), global.nnz, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(global.col_idx.data(), global.nnz, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(global.values.data(), global.nnz, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    for (const auto &path : matrices) {
+        std::filesystem::path fs_path(path);
+        std::string matrix_name = fs_path.stem().string();
 
-    std::vector<double> x(global.cols, 1.0);
+        if (rank == 0) {
+            std::cout << "\n========================================" << std::endl;
+            std::cout << "Processing matrix: " << matrix_name << std::endl;
+            std::cout << "========================================" << std::endl;
+        }
 
-    if (rank == 0) {
-      std::cout << "  Testing 1D partitioning..." << std::endl;
+        // ============================================================
+        // STEP 1: Load matrix on rank 0
+        // ============================================================
+        COOMatrix global;
+
+        if (rank == 0) {
+            try {
+                global.readMatrixMarket(path);
+                std::cout << "  Matrix loaded: " << global.rows << " x " << global.cols 
+                          << ", nnz = " << global.nnz << std::endl;
+            } catch (const std::exception& e) {
+                std::cerr << "Error loading matrix " << path << ": " << e.what() << std::endl;
+                continue;
+            }
+        }
+
+        // Broadcast dimensions
+        MPI_Bcast(&global.rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(&global.cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(&global.nnz, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+        // Allocate on non-root ranks
+        if (rank != 0) {
+            global.row_idx.resize(global.nnz);
+            global.col_idx.resize(global.nnz);
+            global.values.resize(global.nnz);
+        }
+
+        // Broadcast matrix data
+        MPI_Bcast(global.row_idx.data(), global.nnz, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(global.col_idx.data(), global.nnz, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(global.values.data(), global.nnz, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+        MPI_Barrier(MPI_COMM_WORLD);
+
+        // ============================================================
+        // STEP 2: Create input vector (replicated on all ranks)
+        // ============================================================
+        std::vector<double> x_global(global.cols, 1.0);
+
+        // ============================================================
+        // STEP 3: Test 1D Partitioning
+        // ============================================================
+        if (rank == 0) {
+            std::cout << "\n--- Testing 1D Partitioning ---" << std::endl;
+        }
+
+        // Measure vector broadcast time for 1D
+        double broadcast_time_1d = 0.0;
+        
+        auto bcast_start = std::chrono::high_resolution_clock::now();
+        
+        // For 1D: vector is already replicated, but in practice you'd do:
+        // MPI_Bcast(x_global.data(), global.cols, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        // Since we initialize it on all ranks, broadcast time is 0 (or measure it separately)
+        
+        auto bcast_end = std::chrono::high_resolution_clock::now();
+        broadcast_time_1d = std::chrono::duration<double, std::milli>(bcast_end - bcast_start).count();
+
+        // Create distributed matrix
+        DistributedMatrix A1(global, Partitioning::OneD);
+        
+        // Get memory usage
+        size_t local_mem_bytes_1 = A1.getLocalMemoryUsage();
+        size_t max_mem_bytes_1 = 0;
+        MPI_Reduce(&local_mem_bytes_1, &max_mem_bytes_1, 1, 
+                   MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+        double mem_mb_1 = max_mem_bytes_1 / (1024.0 * 1024.0);
+
+        // Run benchmark
+        BenchmarkResult res1 = SparseMatrixBenchmark::benchmark_spmv(A1, x_global, 10);
+
+        // Add broadcast time to communication time for 1D
+        // (since the vector needs to be available on all ranks)
+        res1.avg_comm_time += broadcast_time_1d;
+
+        if (rank == 0) {
+            std::cout << "  Results:" << std::endl;
+            std::cout << "    90th percentile: " << res1.percentile_90 << " ms" << std::endl;
+            std::cout << "    Avg time: " << res1.average << " ms" << std::endl;
+            std::cout << "    Avg comm: " << res1.avg_comm_time << " ms" << std::endl;
+            std::cout << "    Avg comp: " << res1.avg_comp_time << " ms" << std::endl;
+            std::cout << "    Max memory: " << mem_mb_1 << " MB" << std::endl;
+            
+            SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "1D", 
+                                                  size, omp_threads, global.nnz, 
+                                                  mem_mb_1, res1);
+        }
+
+        // ============================================================
+        // STEP 4: Test 2D Partitioning (if size > 1)
+        // ============================================================
+        if (size > 1) {
+            if (rank == 0) {
+                std::cout << "\n--- Testing 2D Partitioning ---" << std::endl;
+            }
+
+            // Create distributed matrix with 2D partitioning
+            DistributedMatrix A2(global, Partitioning::TwoD);
+            
+            // Get memory usage
+            size_t local_mem_bytes_2 = A2.getLocalMemoryUsage();
+            size_t max_mem_bytes_2 = 0;
+            MPI_Reduce(&local_mem_bytes_2, &max_mem_bytes_2, 1, 
+                       MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+            double mem_mb_2 = max_mem_bytes_2 / (1024.0 * 1024.0);
+
+            // Run benchmark (communication is measured inside SpMV for 2D)
+            BenchmarkResult res2 = SparseMatrixBenchmark::benchmark_spmv(A2, x_global, 10);
+
+            if (rank == 0) {
+                std::cout << "  Results:" << std::endl;
+                std::cout << "    90th percentile: " << res2.percentile_90 << " ms" << std::endl;
+                std::cout << "    Avg time: " << res2.average << " ms" << std::endl;
+                std::cout << "    Avg comm: " << res2.avg_comm_time << " ms" << std::endl;
+                std::cout << "    Avg comp: " << res2.avg_comp_time << " ms" << std::endl;
+                std::cout << "    Max memory: " << mem_mb_2 << " MB" << std::endl;
+                
+                SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "2D", 
+                                                      size, omp_threads, global.nnz, 
+                                                      mem_mb_2, res2);
+            }
+        } else if (rank == 0) {
+            std::cout << "  Skipping 2D partitioning (requires >1 MPI process)" << std::endl;
+        }
+
+        MPI_Barrier(MPI_COMM_WORLD);
     }
-
-    // 1D Test - DO NOT CLEAR GLOBAL MATRIX HERE!
-    DistributedMatrix A1(global, Partitioning::OneD);
-    
-    size_t local_mem_bytes_1 = A1.getLocalMemoryUsage();
-    size_t max_mem_bytes_1 = 0;
-    MPI_Reduce(&local_mem_bytes_1, &max_mem_bytes_1, 1, MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
-    double mem_mb_1 = max_mem_bytes_1 / 1024.0 / 1024.0;
-    
-    BenchmarkResult res1 = SparseMatrixBenchmark::benchmark_spmv(A1, x, 10);
-    if (rank == 0) {
-      SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "1D", size, omp_threads, global.nnz, mem_mb_1, res1);
-      std::cout << "    90th percentile: " << res1.percentile_90 << " ms" << std::endl;
-    }
-    // Only test 2D if we have more than 1 process
-    if (size > 1) {
-      if (rank == 0) {
-        std::cout << "  Testing 2D partitioning..." << std::endl;
-      }
-
-      // 2D Test - NEED THE GLOBAL MATRIX TO STILL BE VALID HERE!
-      DistributedMatrix A2(global, Partitioning::TwoD);
-      size_t local_mem_bytes_2 = A2.getLocalMemoryUsage();
-      size_t max_mem_bytes_2 = 0;
-      MPI_Reduce(&local_mem_bytes_2, &max_mem_bytes_2, 1, MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
-      double mem_mb_2 = max_mem_bytes_2 / 1024.0 / 1024.0;
-      
-      BenchmarkResult res2 = SparseMatrixBenchmark::benchmark_spmv(A2, x, 10);
-      if (rank == 0) {
-        SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "2D", size, omp_threads, global.nnz, mem_mb_2, res2);
-        std::cout << "    90th percentile: " << res2.percentile_90 << " ms" << std::endl;
-      }    } else if (rank == 0) {
-      std::cout << "  Skipping 2D partitioning (requires >1 MPI process)" << std::endl;
-    }
-
-    // Now we can clear the global matrix if we want, but it will go out of scope anyway
-    // at the end of this loop iteration, so clearing is unnecessary
-  }
 
   // ============================================================
                      // WEAK SCALING BENCHMARK

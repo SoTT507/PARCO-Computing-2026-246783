@@ -24,6 +24,9 @@ public:
     int global_rows, global_cols;
     int local_rows, local_cols;
 
+    std::vector<int>col_block_starts;
+    std::vector<size_t>col_block_sizes;
+
     // 2D grid info
     int dims[2];
     int coords[2];
