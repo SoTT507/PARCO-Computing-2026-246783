@@ -55,9 +55,9 @@ mv ./d2_SpMV ../
 
 cd ..
 
-# cd thirdparty
-# exec ./getmatrices.sh
-# cd ..
+cd thirdparty
+./getmatrices.sh
+cd ..
 
 echo "====================================================="
 echo "           Build completed successfully :)           "
