@@ -33,25 +33,29 @@ module load PMIx/4.2.2-GCCcore-12.2.0
 module load UCC/1.1.0-GCCcore-12.2.0
 module load OpenMPI/4.1.4-GCC-12.2.0
 
-CORES_PER_NODE=64
-NODES=1
+CONFIGURATIONS=(
+    "1:128"    # Pure OMP
+    "2:64"     # 2 MPI × 64 OMP
+    "4:32"     # 4 MPI × 32 OMP
+    "8:16"     # 8 MPI × 16 OMP
+    "16:8"     # 16 MPI × 8 OMP
+    "32:4"     # 32 MPI × 4 OMP
+    "64:2"     # 64 MPI × 2 OMP
+    "128:1"    # Pure MPI
+)
 
-MPI_PER_NODE_LIST="1 2 4 8 16 32 64 128"
-
-for MPI_PER_NODE in $MPI_PER_NODE_LIST
+for CONFIG in "${CONFIGURATIONS[@]}"
 do
-    MPI_PROCS=$((MPI_PER_NODE * NODES))
-
-    if [ "$MPI_PER_NODE" -eq 128 ]; then
-      OMP_THREADS=1
-    else
-      OMP_THREADS=$((CORES_PER_NODE / MPI_PER_NODE))
+    TOTAL_MPI=${CONFIG%:*}
+    OMP_THREADS=${CONFIG#*:}
+    
+    # Check if configuration is feasible
+    if [ $TOTAL_MPI -gt $TOTAL_CORES ]; then
+        echo "Skipping $TOTAL_MPI MPI processes (exceeds total cores)"
+        continue
     fi
-    # Safety check
-    if [ $OMP_THREADS -lt 1 ]; then
-        OMP_THREADS=1
-    fi
-
+    
+    MPI_PER_NODE=$(( (TOTAL_MPI + NODES - 1) / NODES ))
     export OMP_NUM_THREADS=$OMP_THREADS
     export OMP_PROC_BIND=spread
     # export OMP_PLACES=cores
