@@ -184,78 +184,127 @@ int main(int argc, char **argv) {
         MPI_Barrier(MPI_COMM_WORLD);
     }
 
+    // ============================================================
+  // WEAK SCALING BENCHMARK
   // ============================================================
-                     // WEAK SCALING BENCHMARK
-  // ============================================================
-  // MPI_Barrier(MPI_COMM_WORLD);
-  // if (rank == 0) {
-  //     std::cout << "\n ============= WEAK SCALING (Random Matrix) ============= " << std::endl;
-  // }
-  //
-  // // Configuration for Weak Scaling
-  // int base_dim = 200000;
-  // int scaled_dim = static_cast<int>(base_dim * std::sqrt(size));
-  //
-  // std::string ws_csv = "mpi_weak_scaling.csv";
-  // if (rank == 0) SparseMatrixBenchmark::writeMPIcsvHeader(ws_csv);
-  //
-  // COOMatrix weak_global;
-  //
-  // if (rank == 0) {
-  //     std::cout << "  Generating Random Matrix for P=" << size
-  //               << " | Dim: " << scaled_dim << "x" << scaled_dim << std::endl;
-  //     weak_global.generateRandomSparse(scaled_dim, 0.99);
-  // }
-  //
-  // // Broadcast Dimensions
-  // MPI_Bcast(&weak_global.rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  // MPI_Bcast(&weak_global.cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  // MPI_Bcast(&weak_global.nnz, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  //
-  // if (rank != 0) {
-  //     weak_global.row_idx.resize(weak_global.nnz);
-  //     weak_global.col_idx.resize(weak_global.nnz);
-  //     weak_global.values.resize(weak_global.nnz);
-  // }
-  //
-  // // Broadcast Data
-  // MPI_Bcast(weak_global.row_idx.data(), weak_global.nnz, MPI_INT, 0, MPI_COMM_WORLD);
-  // MPI_Bcast(weak_global.col_idx.data(), weak_global.nnz, MPI_INT, 0, MPI_COMM_WORLD);
-  // MPI_Bcast(weak_global.values.data(), weak_global.nnz, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-  //
-  // std::vector<double> x_weak(weak_global.cols, 1.0);
-  //
-  // // Run 1D Weak Scaling
-  // DistributedMatrix A_weak(weak_global, Partitioning::OneD);
-  //
-  // // METRIC: Memory Footprint
-  // size_t local_mem = A_weak.getLocalMemoryUsage();
-  // size_t max_mem = 0;
-  // MPI_Reduce(&local_mem, &max_mem, 1, MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
-  // double max_mem_mb = max_mem / 1024.0 / 1024.0;
-  //
-  // BenchmarkResult res_weak = SparseMatrixBenchmark::benchmark_spmv(A_weak, x_weak, 10);
-  //
-  // if (rank == 0) {
-  //     SparseMatrixBenchmark::writeMPIcsvRow(ws_csv, "Random_Weak", "1D", size, omp_threads, weak_global.nnz, max_mem_mb, res_weak);
-  //     std::cout << "    Time: " << res_weak.average << " ms | Max Mem per Rank: " 
-  //               << max_mem_mb << " MB" << std::endl;
-  // }
-  //
-  // // Optional: Run 2D Weak Scaling if size > 1
-  // if (size > 1) {
-  //      DistributedMatrix A_weak_2d(weak_global, Partitioning::TwoD);
-  //
-  //      size_t local_mem2 = A_weak_2d.getLocalMemoryUsage();
-  //      size_t max_mem2 = 0;
-  //      MPI_Reduce(&local_mem2, &max_mem2, 1, MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
-  //      double max_mem_mb2 = max_mem2 / 1024.0 / 1024.0;
-  //
-  //      BenchmarkResult res_weak2 = SparseMatrixBenchmark::benchmark_spmv(A_weak_2d, x_weak, 10);
-  //      if (rank == 0) {
-  //          SparseMatrixBenchmark::writeMPIcsvRow(ws_csv, "Random_Weak", "2D", size, omp_threads, weak_global.nnz, max_mem_mb2, res_weak2);
-  //      }
-  // }
+  MPI_Barrier(MPI_COMM_WORLD);
+  if (rank == 0) {
+      std::cout << "\n ============= WEAK SCALING (Random Matrix) ============= " << std::endl;
+  }
+
+  // Configuration for Weak Scaling - problem size grows with processors
+  // Keep work per processor constant: nnz per processor = base_nnz_per_proc
+  int base_nnz_per_proc = 1000000;  // 1M non-zeros per processor as baseline
+  
+  // Calculate total nnz for weak scaling
+  int total_nnz_weak = base_nnz_per_proc * size;
+  
+  // For square matrices: n = sqrt(nnz / density), assuming density = 0.001
+  double density = 0.001;  // 0.1% density typical for sparse matrices
+  int weak_dim = static_cast<int>(sqrt(total_nnz_weak / density));
+  
+  std::string ws_csv = "mpi_weak_scaling.csv";
+  if (rank == 0) {
+      std::cout << "  Weak Scaling Configuration:" << std::endl;
+      std::cout << "    Processors: " << size << std::endl;
+      std::cout << "    Base nnz per processor: " << base_nnz_per_proc << std::endl;
+      std::cout << "    Total nnz: " << total_nnz_weak << std::endl;
+      std::cout << "    Matrix dimension: " << weak_dim << "x" << weak_dim << std::endl;
+      std::cout << "    Expected density: " << density * 100 << "%" << std::endl;
+      SparseMatrixBenchmark::writeMPIcsvHeader(ws_csv);
+  }
+
+  COOMatrix weak_global;
+  
+  if (rank == 0) {
+      std::cout << "  Generating Random Sparse Matrix..." << std::endl;
+      try {
+          // Generate random sparse matrix with specified dimension and target nnz
+          weak_global.generateRandomSparse(weak_dim, density, total_nnz_weak);
+          std::cout << "    Actual nnz generated: " << weak_global.nnz << std::endl;
+          std::cout << "    Actual density: " 
+                    << (100.0 * weak_global.nnz) / (weak_global.rows * weak_global.cols) 
+                    << "%" << std::endl;
+      } catch (const std::exception& e) {
+          std::cerr << "Error generating weak scaling matrix: " << e.what() << std::endl;
+          // Continue with other benchmarks even if weak scaling fails
+          MPI_Barrier(MPI_COMM_WORLD);
+          goto cleanup;
+      }
+  }
+
+  // Broadcast dimensions
+  MPI_Bcast(&weak_global.rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&weak_global.cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&weak_global.nnz, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+  if (rank != 0) {
+      weak_global.row_idx.resize(weak_global.nnz);
+      weak_global.col_idx.resize(weak_global.nnz);
+      weak_global.values.resize(weak_global.nnz);
+  }
+
+  // Broadcast matrix data
+  MPI_Bcast(weak_global.row_idx.data(), weak_global.nnz, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(weak_global.col_idx.data(), weak_global.nnz, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(weak_global.values.data(), weak_global.nnz, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+  std::vector<double> x_weak(weak_global.cols, 1.0);
+
+  // Run 1D Weak Scaling
+  if (rank == 0) {
+      std::cout << "\n--- Weak Scaling: 1D Partitioning ---" << std::endl;
+  }
+  
+  DistributedMatrix A_weak_1d(weak_global, Partitioning::OneD);
+  
+  // METRIC: Memory Footprint
+  size_t local_mem_1d = A_weak_1d.getLocalMemoryUsage();
+  size_t max_mem_1d = 0;
+  MPI_Reduce(&local_mem_1d, &max_mem_1d, 1, MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+  double max_mem_mb_1d = max_mem_1d / (1024.0 * 1024.0);
+
+  BenchmarkResult res_weak_1d = SparseMatrixBenchmark::benchmark_spmv(A_weak_1d, x_weak, 10);
+
+  if (rank == 0) {
+      SparseMatrixBenchmark::writeMPIcsvRow(ws_csv, "Random_Weak", "1D", 
+                                           size, omp_threads, weak_global.nnz, 
+                                           max_mem_mb_1d, res_weak_1d);
+      std::cout << "    Avg time: " << res_weak_1d.average << " ms" << std::endl;
+      std::cout << "    Avg comm: " << res_weak_1d.avg_comm_time << " ms" << std::endl;
+      std::cout << "    Avg comp: " << res_weak_1d.avg_comp_time << " ms" << std::endl;
+      std::cout << "    Max memory per rank: " << max_mem_mb_1d << " MB" << std::endl;
+  }
+
+  // Run 2D Weak Scaling if size > 1
+  if (size > 1) {
+      if (rank == 0) {
+          std::cout << "\n--- Weak Scaling: 2D Partitioning ---" << std::endl;
+      }
+      
+      DistributedMatrix A_weak_2d(weak_global, Partitioning::TwoD);
+      
+      size_t local_mem_2d = A_weak_2d.getLocalMemoryUsage();
+      size_t max_mem_2d = 0;
+      MPI_Reduce(&local_mem_2d, &max_mem_2d, 1, MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+      double max_mem_mb_2d = max_mem_2d / (1024.0 * 1024.0);
+      
+      BenchmarkResult res_weak_2d = SparseMatrixBenchmark::benchmark_spmv(A_weak_2d, x_weak, 10);
+      
+      if (rank == 0) {
+          SparseMatrixBenchmark::writeMPIcsvRow(ws_csv, "Random_Weak", "2D", 
+                                               size, omp_threads, weak_global.nnz, 
+                                               max_mem_mb_2d, res_weak_2d);
+          std::cout << "    Avg time: " << res_weak_2d.average << " ms" << std::endl;
+          std::cout << "    Avg comm: " << res_weak_2d.avg_comm_time << " ms" << std::endl;
+          std::cout << "    Avg comp: " << res_weak_2d.avg_comp_time << " ms" << std::endl;
+          std::cout << "    Max memory per rank: " << max_mem_mb_2d << " MB" << std::endl;
+      }
+  }
+
+  if (rank == 0) {
+      std::cout << "\nWeak scaling results saved to: " << ws_csv << std::endl;
+  }
 
   if (rank == 0) {
     std::cout << "\n ============= BENCHMARK COMPLETE ============= " << std::endl;

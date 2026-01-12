@@ -215,16 +215,19 @@ void DistributedMatrix::spmv(const std::vector<double>& x_global,
         y_local.resize(local_rows);
 
         auto comp_start = high_resolution_clock::now();
-
-        #pragma omp parallel for schedule(guided)
-        for (int i = 0; i < local_rows; ++i) {
+        
+        
+        // #pragma omp parallel num_threads(OMP_NUM_THREADS)
+        // {
+          #pragma omp for schedule(guided)
+          for (int i = 0; i < local_rows; ++i) {
             double sum = 0.0;
             for (int j = local_csr.row_ptr[i]; j < local_csr.row_ptr[i + 1]; ++j) {
                 int global_col = local_csr.col_idx[j];
                 sum += local_csr.values[j] * x_global[global_col];
             }
             y_local[i] = sum;
-        }
+        // }
 
         auto comp_end = high_resolution_clock::now();
 

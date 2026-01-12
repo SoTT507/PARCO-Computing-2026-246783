@@ -78,27 +78,57 @@ void COOMatrix::addEntry(int i, int j, double val) {
     nnz++;
 }
 
-void COOMatrix::generateRandomSparse(int n, double sparsity) {
+void COOMatrix::generateRandomSparse(int n, double density, int target_nnz = -1) {
     rows = n;
     cols = n;
-    nnz = static_cast<int>(n * n * (1.0 - sparsity));
+    
+    // Use target_nnz if provided, otherwise calculate from density
+    if (target_nnz > 0) {
+        nnz = target_nnz;
+    } else {
+        nnz = static_cast<int>(n * n * density);
+    }
+    
+    if (nnz <= 0) nnz = 1;
+    if (nnz > n * n) nnz = n * n;  // Can't have more nnz than total elements
 
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<double> value_dist(0.0, 1.0);
-    std::uniform_int_distribution<int> index_dist(0, n-1);
+    std::uniform_int_distribution<int> row_dist(0, n-1);
+    std::uniform_int_distribution<int> col_dist(0, n-1);
 
     row_idx.resize(nnz);
     col_idx.resize(nnz);
     values.resize(nnz);
 
+    // Use a set to avoid duplicate entries
+    std::unordered_set<int64_t> used_positions;
+    
     for (int i = 0; i < nnz; i++) {
-        row_idx[i] = index_dist(gen);
-        col_idx[i] = index_dist(gen);
+        int attempts = 0;
+        int64_t pos;
+        
+        // Ensure unique positions (optional but good for realistic matrices)
+        do {
+            int r = row_dist(gen);
+            int c = col_dist(gen);
+            pos = static_cast<int64_t>(r) * n + c;
+            
+            if (++attempts > 100) {
+                // If too many attempts, allow duplicates
+                break;
+            }
+        } while (used_positions.find(pos) != used_positions.end());
+        
+        used_positions.insert(pos);
+        
+        // Extract row and column from position
+        row_idx[i] = pos / n;
+        col_idx[i] = pos % n;
         values[i] = value_dist(gen);
     }
 }
-
 // s_matrix_debug.cpp - Update convertFromCOO function
 void CSRMatrix::convertFromCOO(const COOMatrix& coo) {
     std::cout << "CSR::convertFromCOO called: coo.rows=" << coo.rows
