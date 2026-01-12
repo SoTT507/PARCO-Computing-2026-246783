@@ -132,27 +132,28 @@ DistributedMatrix::DistributedMatrix(const COOMatrix& global,
         }
 
         // Create local COO with GLOBAL column indices (critical!)
-        COOMatrix local_coo(local_rows, global_cols);
+        // With this fix:
+        COOMatrix local_coo(local_rows, local_cols);  // Note: local_cols, not global_cols
 
         int local_nnz_count = 0;
         for (int k = 0; k < global.nnz; ++k) {
-            int global_row = global.row_idx[k];
-            int global_col = global.col_idx[k];
+          int global_row = global.row_idx[k];
+          int global_col = global.col_idx[k];
 
-            // Check if this non-zero belongs to our block
-            bool in_row_range = (global_row >= row_start && 
-                                global_row < row_start + local_rows);
-            bool in_col_range = (global_col >= col_start && 
-                                global_col < col_start + local_cols);
+          // Check if this non-zero belongs to our block
+          bool in_row_range = (global_row >= row_start && 
+                        global_row < row_start + local_rows);
+          bool in_col_range = (global_col >= col_start && 
+                        global_col < col_start + local_cols);
 
-            if (in_row_range && in_col_range) {
-                int local_row = global_row - row_start;
-                // Store GLOBAL column index (important!)
-                local_coo.addEntry(local_row, global_col, global.values[k]);
-                local_nnz_count++;
-            }
+          if (in_row_range && in_col_range) {
+            int local_row = global_row - row_start;
+            // Convert to LOCAL column index
+            int local_col = global_col - col_start;
+            local_coo.addEntry(local_row, local_col, global.values[k]);
+            local_nnz_count++;
+          }
         }
-
         // Convert to CSR
         local_csr = CSRMatrix(local_coo);
 
@@ -264,14 +265,12 @@ void DistributedMatrix::spmv(const std::vector<double>& x_global,
 
         #pragma omp parallel for schedule(guided)
         for (int i = 0; i < local_rows; ++i) {
-            double sum = 0.0;
-            for (int j = local_csr.row_ptr[i]; j < local_csr.row_ptr[i + 1]; ++j) {
-                int col = local_csr.col_idx[j];  // LOCAL column index
-                if (col >= 0 && col < local_cols) {
-                    sum += local_csr.values[j] * x_block[col];
-                }
-            }
-            y_partial[i] = sum;
+          double sum = 0.0;
+          for (int j = local_csr.row_ptr[i]; j < local_csr.row_ptr[i + 1]; ++j) {
+            int local_col = local_csr.col_idx[j];  // Already local after fix
+            sum += local_csr.values[j] * x_block[local_col];
+          }
+          y_partial[i] = sum;
         }
 
         auto comp_end = high_resolution_clock::now();
