@@ -1,3 +1,0 @@
-matrix,partitioning,mpi_procs,omp_threads,nnz,max_mem_mb,p90_ms,avg_ms,min_ms,max_ms,avg_comm_ms,avg_comp_ms,gflops
-Random_Weak,1D,8,1,8000,0.0130,0.031405,0.023484,0.020695,0.032942,0.000000,0.023104,0.6813
-Random_Weak,2D,8,1,8000,0.0147,0.288170,0.266506,0.220936,0.500411,0.233954,0.027039,0.0600
