@@ -7,7 +7,7 @@
 
 #PBS -l walltime=01:00:00
 
-#PBS -l select=2:ncpus=64:mem=25gb
+#PBS -l select=2:ncpus=64:mem=50gb
 
 cd "$PBS_O_WORKDIR"
 
@@ -33,17 +33,20 @@ module load PMIx/4.2.2-GCCcore-12.2.0
 module load UCC/1.1.0-GCCcore-12.2.0
 module load OpenMPI/4.1.4-GCC-12.2.0
 
-TOTAL_CORES=128
 CORES_PER_NODE=64
-NODES=2
+NODES=1
 
-MPI_PER_NODE_LIST="1 2 4 8 16 32 64"
+MPI_PER_NODE_LIST="1 2 4 8 16 32 64 128"
 
 for MPI_PER_NODE in $MPI_PER_NODE_LIST
 do
     MPI_PROCS=$((MPI_PER_NODE * NODES))
-    OMP_THREADS=$((CORES_PER_NODE / MPI_PER_NODE))
 
+    if [ "$MPI_PER_NODE" -eq 128 ]; then
+      OMP_THREADS=1
+    else
+      OMP_THREADS=$((CORES_PER_NODE / MPI_PER_NODE))
+    fi
     # Safety check
     if [ $OMP_THREADS -lt 1 ]; then
         OMP_THREADS=1
