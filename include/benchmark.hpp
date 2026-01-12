@@ -1,3 +1,4 @@
+#pragma once
 #include "pch.h"
 #include "s_matrix.hpp"
 #include "d_matrix.hpp"

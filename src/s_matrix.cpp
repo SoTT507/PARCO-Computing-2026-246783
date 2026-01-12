@@ -78,7 +78,29 @@ void COOMatrix::addEntry(int i, int j, double val) {
     nnz++;
 }
 
-void COOMatrix::generateRandomSparse(int n, double density, int target_nnz = -1) {
+
+void COOMatrix::generateRandomSparse(int n, double sparsity) {
+    rows = n;
+    cols = n;
+    nnz = static_cast<int>(n * n * (1.0 - sparsity));
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<double> value_dist(0.0, 1.0);
+    std::uniform_int_distribution<int> index_dist(0, n-1);
+
+    row_idx.resize(nnz);
+    col_idx.resize(nnz);
+    values.resize(nnz);
+
+    for (int i = 0; i < nnz; i++) {
+        row_idx[i] = index_dist(gen);
+        col_idx[i] = index_dist(gen);
+        values[i] = value_dist(gen);
+    }
+}
+
+void COOMatrix::generateRandomSparseNNZ(int n, double density, int target_nnz) {
     rows = n;
     cols = n;
     

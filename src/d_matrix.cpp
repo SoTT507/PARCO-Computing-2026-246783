@@ -227,6 +227,7 @@ void DistributedMatrix::spmv(const std::vector<double>& x_global,
                 sum += local_csr.values[j] * x_global[global_col];
             }
             y_local[i] = sum;
+          }
         // }
 
         auto comp_end = high_resolution_clock::now();

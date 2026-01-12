@@ -16,6 +16,7 @@ public:
     void readMatrixMarket(const std::string& filename,bool keep_1_based = false);
     void addEntry(int i, int j, double val);
     void generateRandomSparse(int n, double sparsity);
+    void generateRandomSparseNNZ(int n, double density, int target_nnz = -1);
 };
 
 class CSRMatrix {
