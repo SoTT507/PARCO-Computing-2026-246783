@@ -3,6 +3,7 @@
 #define SIMPLE_PARALLEL_READER_HPP
 
 #include "s_matrix.hpp"
+#include "pch.h"
 #include <mpi.h>
 #include <string>
 #include <vector>
