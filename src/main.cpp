@@ -60,14 +60,14 @@ int main(int argc, char **argv) {
     }
 
     std::vector<std::string> matrices = {
-        "thirdparty/1138_bus/1138_bus.mtx",
-        // "thirdparty/audikw_1/audikw_1.mtx",
-        // "thirdparty/kron_g500-logn19/kron_g500-logn19.mtx",
-        // "thirdparty/Serena/Serena.mtx",
-        // "thirdparty/Freescale1/Freescale1.mtx",
-        // "thirdparty/ldoor/ldoor.mtx",
-        // "thirdparty/G3_circuit/G3_circuit.mtx",
-        // "thirdparty/Transport/Transport.mtx"
+        // "thirdparty/1138_bus/1138_bus.mtx",
+        "thirdparty/audikw_1/audikw_1.mtx",
+        "thirdparty/kron_g500-logn19/kron_g500-logn19.mtx",
+        "thirdparty/Serena/Serena.mtx",
+        "thirdparty/Freescale1/Freescale1.mtx",
+        "thirdparty/ldoor/ldoor.mtx",
+        "thirdparty/G3_circuit/G3_circuit.mtx",
+        "thirdparty/Transport/Transport.mtx"
     };
 
     if (rank == 0) {
