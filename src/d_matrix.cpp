@@ -1,9 +1,9 @@
 // d_matrix.cpp - FULLY CORRECTED VERSION
 #include "d_matrix.hpp"
-#include <iostream>
-#include <algorithm>
-#include <chrono>
-
+#include "p_reader.hpp"
+#include <numeric>
+#include <unordered_map>
+#include "pch.h"
 DistributedMatrix::DistributedMatrix(const COOMatrix& global,
                                      Partitioning part,
                                      MPI_Comm world,
@@ -16,45 +16,85 @@ DistributedMatrix::DistributedMatrix(const COOMatrix& global,
     global_rows = global.rows;
     global_cols = global.cols;
 
-    // Force 2D to 1D if only 1 process
     if (part == Partitioning::TwoD && size == 1) {
         part = Partitioning::OneD;
     }
 
     if (!already_distributed) {
-        // ============================================
-        // ORIGINAL CODE: Broadcast from rank 0
-        // ============================================
-        COOMatrix global_copy = global;  // Work with copy
+        // REQUIRED BASELINE:
+        //   - rank 0 holds full COO (caller loads it)
+        //   - rank 0 distributes entries to owners (no full broadcast)
 
-        // Broadcast dimensions
-        MPI_Bcast(&global_copy.rows, 1, MPI_INT, 0, world);
-        MPI_Bcast(&global_copy.cols, 1, MPI_INT, 0, world);
-        MPI_Bcast(&global_copy.nnz, 1, MPI_INT, 0, world);
+        int dims_bcast[3] = {global.rows, global.cols, global.nnz};
+        MPI_Bcast(dims_bcast, 3, MPI_INT, 0, world);
+        global_rows = dims_bcast[0];
+        global_cols = dims_bcast[1];
 
-        // Allocate on non-root ranks
-        if (rank != 0) {
-            global_copy.row_idx.resize(global_copy.nnz);
-            global_copy.col_idx.resize(global_copy.nnz);
-            global_copy.values.resize(global_copy.nnz);
+        // 1D cyclic distribution owner(row)=row%P
+        COOMatrix local_coo;
+        {
+            std::vector<int> sendcounts(size, 0), displs(size, 0);
+            std::vector<int> flat_r, flat_c;
+            std::vector<double> flat_v;
+
+            if (rank == 0) {
+                std::vector<std::vector<int>> br(size), bc(size);
+                std::vector<std::vector<double>> bv(size);
+
+                for (int k = 0; k < global.nnz; ++k) {
+                    int gr = global.row_idx[k];
+                    int owner = gr % size;
+                    br[owner].push_back(gr);
+                    bc[owner].push_back(global.col_idx[k]);
+                    bv[owner].push_back(global.values[k]);
+                }
+
+                for (int p = 0; p < size; ++p) sendcounts[p] = (int)br[p].size();
+                std::partial_sum(sendcounts.begin(), sendcounts.end() - 1, displs.begin() + 1);
+
+                int total = 0;
+                for (int p = 0; p < size; ++p) total += sendcounts[p];
+                flat_r.resize(total);
+                flat_c.resize(total);
+                flat_v.resize(total);
+
+                for (int p = 0; p < size; ++p) {
+                    int off = displs[p];
+                    std::copy(br[p].begin(), br[p].end(), flat_r.begin() + off);
+                    std::copy(bc[p].begin(), bc[p].end(), flat_c.begin() + off);
+                    std::copy(bv[p].begin(), bv[p].end(), flat_v.begin() + off);
+                }
+            }
+
+            int local_nnz = 0;
+            MPI_Scatter(sendcounts.data(), 1, MPI_INT, &local_nnz, 1, MPI_INT, 0, world);
+
+            std::vector<int> r_local(local_nnz), c_local(local_nnz);
+            std::vector<double> v_local(local_nnz);
+
+            MPI_Scatterv(rank == 0 ? flat_r.data() : nullptr, sendcounts.data(), displs.data(), MPI_INT,
+                         r_local.data(), local_nnz, MPI_INT, 0, world);
+            MPI_Scatterv(rank == 0 ? flat_c.data() : nullptr, sendcounts.data(), displs.data(), MPI_INT,
+                         c_local.data(), local_nnz, MPI_INT, 0, world);
+            MPI_Scatterv(rank == 0 ? flat_v.data() : nullptr, sendcounts.data(), displs.data(), MPI_DOUBLE,
+                         v_local.data(), local_nnz, MPI_DOUBLE, 0, world);
+
+            int local_rows_calc = 0;
+            for (int i = rank; i < global_rows; i += size) local_rows_calc++;
+
+            local_coo = COOMatrix(local_rows_calc, global_cols);
+            for (int k = 0; k < local_nnz; ++k) {
+                int lr = (r_local[k] - rank) / size;
+                local_coo.addEntry(lr, c_local[k], v_local[k]);
+            }
+            local_coo.nnz = local_nnz;
         }
 
-        // Broadcast matrix data
-        MPI_Bcast(global_copy.row_idx.data(), global_copy.nnz, MPI_INT, 0, world);
-        MPI_Bcast(global_copy.col_idx.data(), global_copy.nnz, MPI_INT, 0, world);
-        MPI_Bcast(global_copy.values.data(), global_copy.nnz, MPI_DOUBLE, 0, world);
-
-        // Now continue with partitioning logic using global_copy
-        initialize_partitioning(global_copy, part, world, false);
+        initialize_partitioning(local_coo, part, world, true);
     } else {
-        // ============================================
-        // NEW: Matrix is already local (no broadcast needed)
-        // ============================================
-        // 'global' parameter actually contains LOCAL data for this process
         initialize_partitioning(global, part, world, true);
     }
 }
-
 void DistributedMatrix::initialize_partitioning(const COOMatrix& matrix_data,
                                                 Partitioning part,
                                                 MPI_Comm world,
@@ -300,32 +340,119 @@ void DistributedMatrix::spmv(const std::vector<double>& x_global,
     //                      1D PARTITIONING
     // ============================================================
     if (row_comm == MPI_COMM_NULL) {
-        y_local.resize(local_rows);
+    y_local.resize(local_rows);
 
-        // NO COMMUNICATION NEEDED - x_global already replicated on all ranks
-        // (This is the O(P·m) memory overhead mentioned in the paper)
+    // Two supported modes:
+    // (A) replicated x: x_global.size() == global_cols -> no comm
+    // (B) distributed x (cyclic): x_global is local owned segment -> halo exchange
 
+    const bool replicated_x = (int)x_global.size() == global_cols;
+
+    if (replicated_x) {
         auto comp_start = high_resolution_clock::now();
 
-        // Simple computation - all processes have full x vector
         #pragma omp parallel for schedule(guided)
         for (int i = 0; i < local_rows; ++i) {
             double sum = 0.0;
             for (int j = local_csr.row_ptr[i]; j < local_csr.row_ptr[i + 1]; ++j) {
-                int global_col = local_csr.col_idx[j];
-                sum += local_csr.values[j] * x_global[global_col];
+                int gc = local_csr.col_idx[j];
+                sum += local_csr.values[j] * x_global[gc];
             }
             y_local[i] = sum;
         }
 
         auto comp_end = high_resolution_clock::now();
-
-        if (comp_time_ms) {
-            *comp_time_ms = duration<double, std::milli>(comp_end - comp_start).count();
-        }
-        // comm_time_ms stays 0 for 1D
+        if (comp_time_ms) *comp_time_ms = duration<double, std::milli>(comp_end - comp_start).count();
+        return;
     }
-    // ============================================================
+
+    // Distributed x: halo exchange of required x entries
+    auto comm_start = high_resolution_clock::now();
+
+    auto local_len_cyclic = [&](int n, int r, int p) {
+        int cnt = 0;
+        for (int i = r; i < n; i += p) ++cnt;
+        return cnt;
+    };
+
+    const int x_local_len = local_len_cyclic(global_cols, rank, size);
+    if ((int)x_global.size() != x_local_len) {
+        throw std::runtime_error(
+            "1D SpMV: distributed-x mode expects x_local.size()==#owned cols (cyclic). "
+            "Pass full x to use replicated mode."
+        );
+    }
+
+    auto x_owned = [&](int global_idx) -> double {
+        return x_global[global_idx / size];
+    };
+
+    std::vector<std::vector<int>> req(size);
+    for (size_t j = 0; j < local_csr.col_idx.size(); ++j) {
+        int gc = local_csr.col_idx[j];
+        int owner = gc % size;
+        if (owner != rank) req[owner].push_back(gc);
+    }
+    for (int p = 0; p < size; ++p) {
+        auto& v = req[p];
+        std::sort(v.begin(), v.end());
+        v.erase(std::unique(v.begin(), v.end()), v.end());
+    }
+
+    std::vector<int> sendcounts(size, 0), recvcounts(size, 0);
+    for (int p = 0; p < size; ++p) sendcounts[p] = (int)req[p].size();
+    MPI_Alltoall(sendcounts.data(), 1, MPI_INT, recvcounts.data(), 1, MPI_INT, comm);
+
+    std::vector<int> sdispls(size, 0), rdispls(size, 0);
+    std::partial_sum(sendcounts.begin(), sendcounts.end() - 1, sdispls.begin() + 1);
+    std::partial_sum(recvcounts.begin(), recvcounts.end() - 1, rdispls.begin() + 1);
+
+    const int send_total = std::accumulate(sendcounts.begin(), sendcounts.end(), 0);
+    const int recv_total = std::accumulate(recvcounts.begin(), recvcounts.end(), 0);
+
+    std::vector<int> req_flat(send_total);
+    for (int p = 0; p < size; ++p) {
+        std::copy(req[p].begin(), req[p].end(), req_flat.begin() + sdispls[p]);
+    }
+
+    std::vector<int> req_from_others(recv_total);
+    MPI_Alltoallv(req_flat.data(), sendcounts.data(), sdispls.data(), MPI_INT,
+                  req_from_others.data(), recvcounts.data(), rdispls.data(), MPI_INT,
+                  comm);
+
+    std::vector<double> send_vals(recv_total);
+    for (int i = 0; i < recv_total; ++i) {
+        int g = req_from_others[i];
+        send_vals[i] = x_owned(g);
+    }
+
+    std::vector<double> recv_vals(send_total);
+    MPI_Alltoallv(send_vals.data(), recvcounts.data(), rdispls.data(), MPI_DOUBLE,
+                  recv_vals.data(), sendcounts.data(), sdispls.data(), MPI_DOUBLE,
+                  comm);
+
+    std::unordered_map<int, double> ghost;
+    ghost.reserve((size_t)send_total * 2);
+    for (int i = 0; i < send_total; ++i) ghost.emplace(req_flat[i], recv_vals[i]);
+
+    auto comm_end = high_resolution_clock::now();
+    if (comm_time_ms) *comm_time_ms = duration<double, std::milli>(comm_end - comm_start).count();
+
+    auto comp_start = high_resolution_clock::now();
+    #pragma omp parallel for schedule(guided)
+    for (int i = 0; i < local_rows; ++i) {
+        double sum = 0.0;
+        for (int j = local_csr.row_ptr[i]; j < local_csr.row_ptr[i + 1]; ++j) {
+            int gc = local_csr.col_idx[j];
+            int owner = gc % size;
+            double xv = (owner == rank) ? x_owned(gc) : ghost[gc];
+            sum += local_csr.values[j] * xv;
+        }
+        y_local[i] = sum;
+    }
+    auto comp_end = high_resolution_clock::now();
+    if (comp_time_ms) *comp_time_ms = duration<double, std::milli>(comp_end - comp_start).count();
+}    // ============================================================
     //                      2D PARTITIONING (Pc == 1)
     // ============================================================
     else if (Pc == 1) {
