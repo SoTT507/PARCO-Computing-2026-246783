@@ -111,7 +111,7 @@ COOMatrix SimpleParallelReader::read_1D_cyclic(const std::string& filename,
             }
             entries_read++;
             
-            // Progress indicator
+            // Progress indicator (don't worry if becomes negative --> integer overflow)
             if (entries_read % 100000 == 0 && rank == 0) {
                 std::cout << "\r" << (entries_read*100)/nnz << "%" << std::flush;
             }
