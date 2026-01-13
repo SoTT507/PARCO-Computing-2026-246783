@@ -7,7 +7,7 @@
 
 #PBS -l walltime=01:00:00
 
-#PBS -l select=1:ncpus=64:mem=50gb
+#PBS -l select=2:ncpus=64:mem=50gb
 
 cd "$PBS_O_WORKDIR"
 
@@ -34,7 +34,7 @@ module load UCC/1.1.0-GCCcore-12.2.0
 module load OpenMPI/4.1.4-GCC-12.2.0
 
 CORES_PER_NODE=64
-NODES=1
+NODES=2
 
 MPI_PER_NODE_LIST="1 2 4 8 16 32 64"
 
@@ -42,15 +42,15 @@ MPI_PER_NODE_LIST="1 2 4 8 16 32 64"
 for MPI_PER_NODE in $MPI_PER_NODE_LIST
 do
     MPI_PROCS=$((MPI_PER_NODE * NODES))
-    
-    # Calculate OMP threads 
+
+    # Calculate OMP threads
     OMP_THREADS=$((CORES_PER_NODE / MPI_PER_NODE))
-    
+
     # Safety check - ensure at least 1 thread
     if [ $OMP_THREADS -lt 1 ]; then
         OMP_THREADS=1
     fi
-    
+
     # check that available cores per MPI process do not exceed
     if [ $OMP_THREADS -gt $((CORES_PER_NODE / MPI_PER_NODE)) ]; then
         OMP_THREADS=$((CORES_PER_NODE / MPI_PER_NODE))
@@ -72,4 +72,3 @@ do
         cp mpi_weak_scaling.csv "$WRESULT_NAME"
     fi
   done
-

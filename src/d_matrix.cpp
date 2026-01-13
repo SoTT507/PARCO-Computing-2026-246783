@@ -6,13 +6,63 @@
 
 DistributedMatrix::DistributedMatrix(const COOMatrix& global,
                                      Partitioning part,
-                                     MPI_Comm world)
+                                     MPI_Comm world,
+                                     bool already_distributed)
 {
     MPI_Comm_rank(world, &rank);
     MPI_Comm_size(world, &size);
+    comm = world;
 
     global_rows = global.rows;
     global_cols = global.cols;
+
+    // Force 2D to 1D if only 1 process
+    if (part == Partitioning::TwoD && size == 1) {
+        part = Partitioning::OneD;
+    }
+
+    if (!already_distributed) {
+        // ============================================
+        // ORIGINAL CODE: Broadcast from rank 0
+        // ============================================
+        COOMatrix global_copy = global;  // Work with copy
+
+        // Broadcast dimensions
+        MPI_Bcast(&global_copy.rows, 1, MPI_INT, 0, world);
+        MPI_Bcast(&global_copy.cols, 1, MPI_INT, 0, world);
+        MPI_Bcast(&global_copy.nnz, 1, MPI_INT, 0, world);
+
+        // Allocate on non-root ranks
+        if (rank != 0) {
+            global_copy.row_idx.resize(global_copy.nnz);
+            global_copy.col_idx.resize(global_copy.nnz);
+            global_copy.values.resize(global_copy.nnz);
+        }
+
+        // Broadcast matrix data
+        MPI_Bcast(global_copy.row_idx.data(), global_copy.nnz, MPI_INT, 0, world);
+        MPI_Bcast(global_copy.col_idx.data(), global_copy.nnz, MPI_INT, 0, world);
+        MPI_Bcast(global_copy.values.data(), global_copy.nnz, MPI_DOUBLE, 0, world);
+
+        // Now continue with partitioning logic using global_copy
+        initialize_partitioning(global_copy, part, world, false);
+    } else {
+        // ============================================
+        // NEW: Matrix is already local (no broadcast needed)
+        // ============================================
+        // 'global' parameter actually contains LOCAL data for this process
+        initialize_partitioning(global, part, world, true);
+    }
+}
+
+void DistributedMatrix::initialize_partitioning(const COOMatrix& matrix_data,
+                                                Partitioning part,
+                                                MPI_Comm world,
+                                                bool is_already_distributed)
+{
+    // Store global dimensions
+    global_rows = matrix_data.rows;
+    global_cols = matrix_data.cols;
 
     // Force 2D to 1D if only 1 process
     if (part == Partitioning::TwoD && size == 1) {
@@ -23,7 +73,6 @@ DistributedMatrix::DistributedMatrix(const COOMatrix& global,
     //                      1D PARTITIONING (Cyclic by rows)
     // ============================================================
     if (part == Partitioning::OneD) {
-        comm = world;
         row_comm = MPI_COMM_NULL;
         col_comm = MPI_COMM_NULL;
         Pr = size;
@@ -31,39 +80,52 @@ DistributedMatrix::DistributedMatrix(const COOMatrix& global,
 
         local_cols = global_cols;
 
-        // Cyclic row distribution: row i goes to process i % size
-        local_rows = 0;
-        for (int i = rank; i < global_rows; i += size) {
-            local_rows++;
-        }
+        if (is_already_distributed) {
+            // For parallel I/O: matrix_data already contains our local rows
+            local_rows = matrix_data.rows;  // Already the local row count
 
-        // Create mapping from global row to local row
-        std::vector<int> global_to_local(global_rows, -1);
-        int local_idx = 0;
-        for (int i = rank; i < global_rows; i += size) {
-            global_to_local[i] = local_idx++;
-        }
+            // Convert local COO to CSR directly
+            local_csr = CSRMatrix(matrix_data);
 
-        // Create local COO with GLOBAL column indices
-        COOMatrix local_coo(local_rows, global_cols);
-
-        for (int k = 0; k < global.nnz; ++k) {
-            int global_row = global.row_idx[k];
-            if (global_to_local[global_row] != -1) {
-                local_coo.addEntry(
-                    global_to_local[global_row],
-                    global.col_idx[k],  // Keep GLOBAL column index
-                    global.values[k]
-                );
+            if (rank == 0) {
+                std::cout << "1D Parallel Partitioning: " << size << " processes" << std::endl;
+                std::cout << "  Local rows per process: variable" << std::endl;
             }
-        }
+        } else {
+            // Original sequential approach
+            local_rows = 0;
+            for (int i = rank; i < global_rows; i += size) {
+                local_rows++;
+            }
 
-        // Convert to CSR
-        local_csr = CSRMatrix(local_coo);
+            // Create mapping from global row to local row
+            std::vector<int> global_to_local(global_rows, -1);
+            int local_idx = 0;
+            for (int i = rank; i < global_rows; i += size) {
+                global_to_local[i] = local_idx++;
+            }
 
-        if (rank == 0) {
-            std::cout << "1D Partitioning: " << size << " processes" << std::endl;
-            std::cout << "  Local rows per process: ~" << local_rows << std::endl;
+            // Create local COO with GLOBAL column indices
+            COOMatrix local_coo(local_rows, global_cols);
+
+            for (int k = 0; k < matrix_data.nnz; ++k) {
+                int global_row = matrix_data.row_idx[k];
+                if (global_to_local[global_row] != -1) {
+                    local_coo.addEntry(
+                        global_to_local[global_row],
+                        matrix_data.col_idx[k],  // Keep GLOBAL column index
+                        matrix_data.values[k]
+                    );
+                }
+            }
+
+            // Convert to CSR
+            local_csr = CSRMatrix(local_coo);
+
+            if (rank == 0) {
+                std::cout << "1D Sequential Partitioning: " << size << " processes" << std::endl;
+                std::cout << "  Local rows per process: ~" << local_rows << std::endl;
+            }
         }
     }
     // ============================================================
@@ -118,7 +180,7 @@ DistributedMatrix::DistributedMatrix(const COOMatrix& global,
         // Precompute column block info for all blocks (needed for SpMV)
         col_block_starts.resize(Pc + 1);
         col_block_sizes.resize(Pc);
-        
+
         col_block_starts[0] = 0;
         for (int c = 0; c < Pc; c++) {
             int block_cols = cols_per_proc;
@@ -131,37 +193,93 @@ DistributedMatrix::DistributedMatrix(const COOMatrix& global,
             std::cout << "2D Partitioning: " << Pr << "x" << Pc << " grid" << std::endl;
         }
 
-        // Create local COO with GLOBAL column indices (critical!)
-        // With this fix:
-        COOMatrix local_coo(local_rows, local_cols);  // Note: local_cols, not global_cols
+        if (is_already_distributed) {
+            // For parallel I/O: matrix_data already contains our local block
+            // Just convert to CSR
+            local_csr = CSRMatrix(matrix_data);
 
-        int local_nnz_count = 0;
-        for (int k = 0; k < global.nnz; ++k) {
-          int global_row = global.row_idx[k];
-          int global_col = global.col_idx[k];
+            if (rank == 0) {
+                std::cout << "  Block sizes: variable per process" << std::endl;
+            }
+        } else {
+            // Original sequential approach
+            // Create local COO with LOCAL column indices
+            COOMatrix local_coo(local_rows, local_cols);
 
-          // Check if this non-zero belongs to our block
-          bool in_row_range = (global_row >= row_start && 
-                        global_row < row_start + local_rows);
-          bool in_col_range = (global_col >= col_start && 
-                        global_col < col_start + local_cols);
+            int local_nnz_count = 0;
+            for (int k = 0; k < matrix_data.nnz; ++k) {
+                int global_row = matrix_data.row_idx[k];
+                int global_col = matrix_data.col_idx[k];
 
-          if (in_row_range && in_col_range) {
-            int local_row = global_row - row_start;
-            // Convert to LOCAL column index
-            int local_col = global_col - col_start;
-            local_coo.addEntry(local_row, local_col, global.values[k]);
-            local_nnz_count++;
-          }
-        }
-        // Convert to CSR
-        local_csr = CSRMatrix(local_coo);
+                // Check if this non-zero belongs to our block
+                bool in_row_range = (global_row >= row_start &&
+                              global_row < row_start + local_rows);
+                bool in_col_range = (global_col >= col_start &&
+                              global_col < col_start + local_cols);
 
-        if (rank == 0) {
-            std::cout << "  Block sizes: " << local_rows << "x" << local_cols 
-                      << " per process" << std::endl;
+                if (in_row_range && in_col_range) {
+                    int local_row = global_row - row_start;
+                    // Convert to LOCAL column index
+                    int local_col = global_col - col_start;
+                    local_coo.addEntry(local_row, local_col, matrix_data.values[k]);
+                    local_nnz_count++;
+                }
+            }
+
+            // Convert to CSR
+            local_csr = CSRMatrix(local_coo);
+
+            if (rank == 0) {
+                std::cout << "  Block sizes: " << local_rows << "x" << local_cols
+                          << " per process" << std::endl;
+            }
         }
     }
+}
+
+DistributedMatrix::DistributedMatrix(const std::string& filename,
+                                     Partitioning part,
+                                     MPI_Comm world)
+{
+    MPI_Comm_rank(world, &rank);
+    MPI_Comm_size(world, &size);
+    comm = world;
+
+    // Read local portion directly from file
+    COOMatrix local_coo = read_local_portion(filename, part, world);
+
+    // Initialize from local data (no broadcast needed)
+    initialize_from_local_coo(local_coo, part, world);
+}
+
+void DistributedMatrix::initialize_from_local_coo(const COOMatrix& local_coo,
+                                                  Partitioning part,
+                                                  MPI_Comm world) {
+    // First, gather global dimensions from all processes
+    int local_dims[2] = {local_coo.rows, local_coo.cols};
+    int global_dims[2] = {0, 0};
+
+    // For 1D: rows are distributed, columns are global
+    // For 2D: both rows and columns are distributed
+
+    if (part == Partitioning::OneD) {
+        // Sum local rows to get global rows
+        MPI_Allreduce(&local_coo.rows, &global_rows, 1, MPI_INT, MPI_SUM, world);
+        // Columns are the same for all processes
+        MPI_Allreduce(&local_coo.cols, &global_cols, 1, MPI_INT, MPI_MAX, world);
+    } else {
+        // For 2D, we need to know the process grid first
+        // ... determine grid and calculate global dimensions
+    }
+
+    // Now call the partitioning logic
+    initialize_partitioning(local_coo, part, world, true);
+}
+
+DistributedMatrix DistributedMatrix::FromFileParallel(const std::string& filename,
+                                                      Partitioning part,
+                                                      MPI_Comm world) {
+    return DistributedMatrix(filename, part, world);
 }
 
 // ============================================================
@@ -215,8 +333,8 @@ void DistributedMatrix::spmv(const std::vector<double>& x_global,
         y_local.resize(local_rows);
 
         auto comp_start = high_resolution_clock::now();
-        
-        
+
+
         // #pragma omp parallel num_threads(OMP_NUM_THREADS)
         // {
           #pragma omp for schedule(guided)

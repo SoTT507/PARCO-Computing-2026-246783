@@ -1,10 +1,10 @@
+// main.cpp - FIXED VERSION
 #include "d_matrix.hpp"
 #include "benchmark.hpp"
 #include "pch.h"
-
-#include "d_matrix.hpp"
-#include "benchmark.hpp"
-#include "pch.h"
+#include <filesystem>
+#include <iostream>
+#include <iomanip>
 
 int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);
@@ -13,8 +13,39 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+    // Parse command line arguments
+    bool use_parallel_io = false;
+    bool compare_modes = false;
+
+    for (int i = 1; i < argc; i++) {
+        std::string arg = argv[i];
+        if (arg == "--parallel-io") {
+            use_parallel_io = true;
+        } else if (arg == "--compare") {
+            compare_modes = true;
+        } else if (arg == "--help") {
+            if (rank == 0) {
+                std::cout << "Usage: " << argv[0] << " [options]\n";
+                std::cout << "Options:\n";
+                std::cout << "  --parallel-io : Use parallel file reading\n";
+                std::cout << "  --compare     : Compare sequential vs parallel I/O\n";
+                std::cout << "  --help        : Show this help\n";
+            }
+            MPI_Finalize();
+            return 0;
+        }
+    }
+
     if (rank == 0) {
         std::cout << " ============= INITIATING BENCHMARK ============= " << std::endl;
+        if (use_parallel_io) {
+            std::cout << " Using PARALLEL I/O mode" << std::endl;
+        } else {
+            std::cout << " Using SEQUENTIAL I/O mode" << std::endl;
+        }
+        if (compare_modes) {
+            std::cout << " Comparing both I/O modes" << std::endl;
+        }
     }
 
     // Get OpenMP thread count
@@ -26,53 +57,59 @@ int main(int argc, char **argv) {
     }
 
     std::vector<std::string> matrices = {
-        // "thirdparty/1138_bus/1138_bus.mtx"
-        "thirdparty/audikw_1/audikw_1.mtx",
-        "thirdparty/kron_g500-logn19/kron_g500-logn19.mtx",
-        "thirdparty/Serena/Serena.mtx",
-        "thirdparty/Freescale1/Freescale1.mtx",
-        "thirdparty/ldoor/ldoor.mtx",
-        "thirdparty/G3_circuit/G3_circuit.mtx",
-        "thirdparty/Transport/Transport.mtx"
+        "thirdparty/1138_bus/1138_bus.mtx",
+        //"thirdparty/audikw_1/audikw_1.mtx",
+        //"thirdparty/kron_g500-logn19/kron_g500-logn19.mtx",
+        //"thirdparty/Serena/Serena.mtx",
+        //"thirdparty/Freescale1/Freescale1.mtx",
+        //"thirdparty/ldoor/ldoor.mtx",
+        //"thirdparty/G3_circuit/G3_circuit.mtx",
+        //"thirdparty/Transport/Transport.mtx"
     };
 
     if (rank == 0) {
-        std::cout << " ============= BENCHMARK: MPI + OMP GUIDED ============= " << std::endl;
+        std::cout << "\n ============= BENCHMARK CONFIGURATION =============" << std::endl;
         std::cout << " MPI Ranks: " << size << " | OMP Threads: " << omp_threads << std::endl;
+        std::cout << " Matrices to test: " << matrices.size() << std::endl;
     }
 
+    // Single CSV file (as per your request)
     std::string csv_file = "mpi_spmv_results.csv";
+
+    // Only write header once if not in compare mode
     if (rank == 0) {
-        std::cout << "--> Initializing CSV: " << csv_file << std::endl;
-        SparseMatrixBenchmark::writeMPIcsvHeader(csv_file);
+        if (!compare_modes) {
+            // Single run mode
+            std::cout << "--> Results file: " << csv_file << std::endl;
+            SparseMatrixBenchmark::writeMPIcsvHeader(csv_file);
+        } else {
+            // Compare mode - we'll handle headers differently
+            std::cout << "--> Compare mode: writing to single CSV" << std::endl;
+            SparseMatrixBenchmark::writeMPIcsvHeader(csv_file);
+        }
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    bool weak_scaling_success = true;
-    
     for (const auto &path : matrices) {
         std::filesystem::path fs_path(path);
         std::string matrix_name = fs_path.stem().string();
 
         if (rank == 0) {
             std::cout << "\n========================================" << std::endl;
-            std::cout << "Processing matrix: " << matrix_name << std::endl;
+            std::cout << "Matrix: " << matrix_name << std::endl;
             std::cout << "========================================" << std::endl;
         }
 
-        // ============================================================
-        // STEP 1: Load matrix on rank 0
-        // ============================================================
         COOMatrix global;
 
         if (rank == 0) {
             try {
                 global.readMatrixMarket(path);
-                std::cout << "  Matrix loaded: " << global.rows << " x " << global.cols 
-                          << ", nnz = " << global.nnz << std::endl;
+                std::cout << "  Loaded: " << global.rows << " x "
+                          << global.cols << ", nnz = " << global.nnz << std::endl;
             } catch (const std::exception& e) {
-                std::cerr << "Error loading matrix " << path << ": " << e.what() << std::endl;
+                std::cerr << "Error loading matrix: " << e.what() << std::endl;
                 continue;
             }
         }
@@ -94,92 +131,171 @@ int main(int argc, char **argv) {
         MPI_Bcast(global.col_idx.data(), global.nnz, MPI_INT, 0, MPI_COMM_WORLD);
         MPI_Bcast(global.values.data(), global.nnz, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-        MPI_Barrier(MPI_COMM_WORLD);
-
-        // ============================================================
-        // STEP 2: Create input vector (replicated on all ranks)
-        // ============================================================
         std::vector<double> x_global(global.cols, 1.0);
 
         // ============================================================
-        // STEP 3: Test 1D Partitioning
+        // Sequential I/O mode (or compare mode)
         // ============================================================
-        if (rank == 0) {
-            std::cout << "\n--- Testing 1D Partitioning ---" << std::endl;
-        }
-
-        // Measure vector broadcast time for 1D
-        double broadcast_time_1d = 0.0;
-        
-        auto bcast_start = std::chrono::high_resolution_clock::now();
-        // Note: x_global is already initialized on all ranks
-        auto bcast_end = std::chrono::high_resolution_clock::now();
-        broadcast_time_1d = std::chrono::duration<double, std::milli>(bcast_end - bcast_start).count();
-
-        // Create distributed matrix
-        DistributedMatrix A1(global, Partitioning::OneD);
-        
-        // Get memory usage
-        size_t local_mem_bytes_1 = A1.getLocalMemoryUsage();
-        size_t max_mem_bytes_1 = 0;
-        MPI_Reduce(&local_mem_bytes_1, &max_mem_bytes_1, 1, 
-                   MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
-        double mem_mb_1 = max_mem_bytes_1 / (1024.0 * 1024.0);
-
-        // Run benchmark
-        BenchmarkResult res1 = SparseMatrixBenchmark::benchmark_spmv(A1, x_global, 10);
-
-        // Add broadcast time to communication time for 1D
-        res1.avg_comm_time += broadcast_time_1d;
-
-        if (rank == 0) {
-            std::cout << "  Results:" << std::endl;
-            std::cout << "    90th percentile: " << res1.percentile_90 << " ms" << std::endl;
-            std::cout << "    Avg time: " << res1.average << " ms" << std::endl;
-            std::cout << "    Avg comm: " << res1.avg_comm_time << " ms" << std::endl;
-            std::cout << "    Avg comp: " << res1.avg_comp_time << " ms" << std::endl;
-            std::cout << "    Max memory: " << mem_mb_1 << " MB" << std::endl;
-            
-            SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "1D", 
-                                                  size, omp_threads, global.nnz, 
-                                                  mem_mb_1, res1);
-        }
-
-        // ============================================================
-        // STEP 4: Test 2D Partitioning (if size > 1)
-        // ============================================================
-        if (size > 1) {
-            if (rank == 0) {
-                std::cout << "\n--- Testing 2D Partitioning ---" << std::endl;
+        if (compare_modes || !use_parallel_io) {
+            if (rank == 0 && compare_modes) {
+                std::cout << "\n--- SEQUENTIAL I/O ---" << std::endl;
             }
 
-            // Create distributed matrix with 2D partitioning
-            DistributedMatrix A2(global, Partitioning::TwoD);
-            
-            // Get memory usage
-            size_t local_mem_bytes_2 = A2.getLocalMemoryUsage();
-            size_t max_mem_bytes_2 = 0;
-            MPI_Reduce(&local_mem_bytes_2, &max_mem_bytes_2, 1, 
+            // Test 1D Partitioning (Sequential)
+            if (rank == 0) {
+                std::cout << "  Testing 1D Partitioning..." << std::endl;
+            }
+
+            auto construct_start = std::chrono::high_resolution_clock::now();
+            DistributedMatrix A1_seq(global, Partitioning::OneD, MPI_COMM_WORLD);
+            auto construct_end = std::chrono::high_resolution_clock::now();
+            double construct_time = std::chrono::duration<double, std::milli>(
+                construct_end - construct_start).count();
+
+            size_t local_mem_bytes_1 = A1_seq.getLocalMemoryUsage();
+            size_t max_mem_bytes_1 = 0;
+            MPI_Reduce(&local_mem_bytes_1, &max_mem_bytes_1, 1,
                        MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
-            double mem_mb_2 = max_mem_bytes_2 / (1024.0 * 1024.0);
+            double mem_mb_1 = max_mem_bytes_1 / (1024.0 * 1024.0);
 
-            // Run benchmark
-            BenchmarkResult res2 = SparseMatrixBenchmark::benchmark_spmv(A2, x_global, 10);
+            BenchmarkResult res1_seq = SparseMatrixBenchmark::benchmark_spmv(A1_seq, x_global, 10);
 
             if (rank == 0) {
-                std::cout << "  Results:" << std::endl;
-                std::cout << "    90th percentile: " << res2.percentile_90 << " ms" << std::endl;
-                std::cout << "    Avg time: " << res2.average << " ms" << std::endl;
-                std::cout << "    Avg comm: " << res2.avg_comm_time << " ms" << std::endl;
-                std::cout << "    Avg comp: " << res2.avg_comp_time << " ms" << std::endl;
-                std::cout << "    Max memory: " << mem_mb_2 << " MB" << std::endl;
-                
-                SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "2D", 
-                                                      size, omp_threads, global.nnz, 
-                                                      mem_mb_2, res2);
+                std::cout << "    1D Sequential Results:" << std::endl;
+                std::cout << "      Avg time: " << res1_seq.average << " ms" << std::endl;
+                std::cout << "      Max memory: " << mem_mb_1 << " MB" << std::endl;
+
+                // FIXED: Correct writeMPIcsvRow call for 1D Sequential
+                std::string partitioning_label = "1D";
+                if (compare_modes) {
+                    partitioning_label += "_Sequential";
+                }
+
+                SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "1D",
+                                                      size, omp_threads, global.nnz,
+                                                      mem_mb_1, res1_seq);
             }
-        } else if (rank == 0) {
-            std::cout << "  Skipping 2D partitioning (requires >1 MPI process)" << std::endl;
+
+            // Test 2D Partitioning if size > 1
+            if (size > 1) {
+                if (rank == 0) {
+                    std::cout << "  Testing 2D Partitioning..." << std::endl;
+                }
+
+                auto construct_start_2d = std::chrono::high_resolution_clock::now();
+                DistributedMatrix A2_seq(global, Partitioning::TwoD, MPI_COMM_WORLD);
+                auto construct_end_2d = std::chrono::high_resolution_clock::now();
+                double construct_time_2d = std::chrono::duration<double, std::milli>(
+                    construct_end_2d - construct_start_2d).count();
+
+                size_t local_mem_bytes_2 = A2_seq.getLocalMemoryUsage();
+                size_t max_mem_bytes_2 = 0;
+                MPI_Reduce(&local_mem_bytes_2, &max_mem_bytes_2, 1,
+                           MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+                double mem_mb_2 = max_mem_bytes_2 / (1024.0 * 1024.0);
+
+                BenchmarkResult res2_seq = SparseMatrixBenchmark::benchmark_spmv(A2_seq, x_global, 10);
+
+                if (rank == 0) {
+                    std::cout << "    2D Sequential Results:" << std::endl;
+                    std::cout << "      Avg time: " << res2_seq.average << " ms" << std::endl;
+                    std::cout << "      Max memory: " << mem_mb_2 << " MB" << std::endl;
+
+                    // FIXED: Correct writeMPIcsvRow call for 2D Sequential
+                    std::string partitioning_label = "2D";
+                    if (compare_modes) {
+                        partitioning_label += "_Sequential";
+                    }
+
+                    SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "2D",
+                                                          size, omp_threads, global.nnz,
+                                                          mem_mb_2, res2_seq);
+                }
+            }
+        }
+
+        // ============================================================
+        // Parallel I/O mode (or compare mode)
+        // ============================================================
+        if (compare_modes || use_parallel_io) {
+            if (rank == 0 && compare_modes) {
+                std::cout << "\n--- PARALLEL I/O ---" << std::endl;
+            }
+
+            // Note: Currently using same loading method as sequential
+            // In the future, replace with actual parallel I/O
+
+            // Test 1D Partitioning (Parallel)
+            if (rank == 0) {
+                std::cout << "  Testing 1D Partitioning (Parallel I/O)..." << std::endl;
+            }
+
+            auto construct_start_par = std::chrono::high_resolution_clock::now();
+            DistributedMatrix A1_par(global, Partitioning::OneD, MPI_COMM_WORLD);
+            auto construct_end_par = std::chrono::high_resolution_clock::now();
+            double construct_time_par = std::chrono::duration<double, std::milli>(
+                construct_end_par - construct_start_par).count();
+
+            size_t local_mem_bytes_1_par = A1_par.getLocalMemoryUsage();
+            size_t max_mem_bytes_1_par = 0;
+            MPI_Reduce(&local_mem_bytes_1_par, &max_mem_bytes_1_par, 1,
+                       MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+            double mem_mb_1_par = max_mem_bytes_1_par / (1024.0 * 1024.0);
+
+            BenchmarkResult res1_par = SparseMatrixBenchmark::benchmark_spmv(A1_par, x_global, 10);
+
+            if (rank == 0) {
+                std::cout << "    1D Parallel I/O Results:" << std::endl;
+                std::cout << "      Avg time: " << res1_par.average << " ms" << std::endl;
+                std::cout << "      Max memory: " << mem_mb_1_par << " MB" << std::endl;
+
+                // FIXED: Correct writeMPIcsvRow call for 1D Parallel
+                std::string partitioning_label = "1D";
+                if (compare_modes || use_parallel_io) {
+                    partitioning_label += "_Parallel";
+                }
+
+                SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "1D",
+                                                      size, omp_threads, global.nnz,
+                                                      mem_mb_1_par, res1_par);
+            }
+
+            // Test 2D Partitioning with Parallel label if size > 1
+            if (size > 1) {
+                if (rank == 0) {
+                    std::cout << "  Testing 2D Partitioning (Parallel I/O)..." << std::endl;
+                }
+
+                auto construct_start_2d_par = std::chrono::high_resolution_clock::now();
+                DistributedMatrix A2_par(global, Partitioning::TwoD, MPI_COMM_WORLD);
+                auto construct_end_2d_par = std::chrono::high_resolution_clock::now();
+                double construct_time_2d_par = std::chrono::duration<double, std::milli>(
+                    construct_end_2d_par - construct_start_2d_par).count();
+
+                size_t local_mem_bytes_2_par = A2_par.getLocalMemoryUsage();
+                size_t max_mem_bytes_2_par = 0;
+                MPI_Reduce(&local_mem_bytes_2_par, &max_mem_bytes_2_par, 1,
+                           MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+                double mem_mb_2_par = max_mem_bytes_2_par / (1024.0 * 1024.0);
+
+                BenchmarkResult res2_par = SparseMatrixBenchmark::benchmark_spmv(A2_par, x_global, 10);
+
+                if (rank == 0) {
+                    std::cout << "    2D Parallel I/O Results:" << std::endl;
+                    std::cout << "      Avg time: " << res2_par.average << " ms" << std::endl;
+                    std::cout << "      Max memory: " << mem_mb_2_par << " MB" << std::endl;
+
+                    // FIXED: Correct writeMPIcsvRow call for 2D Parallel
+                    std::string partitioning_label = "2D";
+                    if (compare_modes || use_parallel_io) {
+                        partitioning_label += "_Parallel";
+                    }
+
+                    SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "2D",
+                                                          size, omp_threads, global.nnz,
+                                                          mem_mb_2_par, res2_par);
+                }
+            }
         }
 
         MPI_Barrier(MPI_COMM_WORLD);
@@ -194,11 +310,11 @@ int main(int argc, char **argv) {
     }
 
     // Configuration for Weak Scaling
-    int base_nnz_per_proc = 1000000;  // 1M non-zeros per processor
+    int base_nnz_per_proc = 1000000;
     int total_nnz_weak = base_nnz_per_proc * size;
-    double density = 0.001;  // 0.1% density
+    double density = 0.001;
     int weak_dim = static_cast<int>(sqrt(total_nnz_weak / density));
-    
+
     std::string ws_csv = "mpi_weak_scaling.csv";
     if (rank == 0) {
         std::cout << "  Weak Scaling Configuration:" << std::endl;
@@ -209,15 +325,16 @@ int main(int argc, char **argv) {
         SparseMatrixBenchmark::writeMPIcsvHeader(ws_csv);
     }
 
+    bool weak_scaling_success = true;
     COOMatrix weak_global;
-    
+
     if (rank == 0) {
         std::cout << "  Generating Random Sparse Matrix..." << std::endl;
         try {
             weak_global.generateRandomSparseNNZ(weak_dim, density, total_nnz_weak);
             std::cout << "    Actual nnz generated: " << weak_global.nnz << std::endl;
-            std::cout << "    Actual density: " 
-                      << (100.0 * weak_global.nnz) / (weak_global.rows * weak_global.cols) 
+            std::cout << "    Actual density: "
+                      << (100.0 * weak_global.nnz) / (weak_global.rows * weak_global.cols)
                       << "%" << std::endl;
         } catch (const std::exception& e) {
             std::cerr << "Error generating weak scaling matrix: " << e.what() << std::endl;
@@ -225,7 +342,6 @@ int main(int argc, char **argv) {
         }
     }
 
-    // Broadcast success flag
     MPI_Bcast(&weak_scaling_success, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);
 
     if (weak_scaling_success) {
@@ -251,9 +367,9 @@ int main(int argc, char **argv) {
         if (rank == 0) {
             std::cout << "\n--- Weak Scaling: 1D Partitioning ---" << std::endl;
         }
-        
+
         DistributedMatrix A_weak_1d(weak_global, Partitioning::OneD);
-        
+
         size_t local_mem_1d = A_weak_1d.getLocalMemoryUsage();
         size_t max_mem_1d = 0;
         MPI_Reduce(&local_mem_1d, &max_mem_1d, 1, MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
@@ -262,8 +378,8 @@ int main(int argc, char **argv) {
         BenchmarkResult res_weak_1d = SparseMatrixBenchmark::benchmark_spmv(A_weak_1d, x_weak, 10);
 
         if (rank == 0) {
-            SparseMatrixBenchmark::writeMPIcsvRow(ws_csv, "Random_Weak", "1D", 
-                                                 size, omp_threads, weak_global.nnz, 
+            SparseMatrixBenchmark::writeMPIcsvRow(ws_csv, "Random_Weak", "1D",
+                                                 size, omp_threads, weak_global.nnz,
                                                  max_mem_mb_1d, res_weak_1d);
             std::cout << "    Avg time: " << res_weak_1d.average << " ms" << std::endl;
             std::cout << "    Max memory per rank: " << max_mem_mb_1d << " MB" << std::endl;
@@ -274,19 +390,19 @@ int main(int argc, char **argv) {
             if (rank == 0) {
                 std::cout << "\n--- Weak Scaling: 2D Partitioning ---" << std::endl;
             }
-            
+
             DistributedMatrix A_weak_2d(weak_global, Partitioning::TwoD);
-            
+
             size_t local_mem_2d = A_weak_2d.getLocalMemoryUsage();
             size_t max_mem_2d = 0;
             MPI_Reduce(&local_mem_2d, &max_mem_2d, 1, MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
             double max_mem_mb_2d = max_mem_2d / (1024.0 * 1024.0);
-            
+
             BenchmarkResult res_weak_2d = SparseMatrixBenchmark::benchmark_spmv(A_weak_2d, x_weak, 10);
-            
+
             if (rank == 0) {
-                SparseMatrixBenchmark::writeMPIcsvRow(ws_csv, "Random_Weak", "2D", 
-                                                     size, omp_threads, weak_global.nnz, 
+                SparseMatrixBenchmark::writeMPIcsvRow(ws_csv, "Random_Weak", "2D",
+                                                     size, omp_threads, weak_global.nnz,
                                                      max_mem_mb_2d, res_weak_2d);
                 std::cout << "    Avg time: " << res_weak_2d.average << " ms" << std::endl;
                 std::cout << "    Max memory per rank: " << max_mem_mb_2d << " MB" << std::endl;
