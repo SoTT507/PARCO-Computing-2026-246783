@@ -5,9 +5,9 @@
 #PBS -e ./err.info
 #PBS -q shortCPUQ
 
-#PBS -l walltime=00:10:00
+#PBS -l walltime=01:00:00
 
-#PBS -l select=2:ncpus=64:mem=25gb
+#PBS -l select=1:ncpus=64:mem=50gb
 
 cd "$PBS_O_WORKDIR"
 
@@ -33,25 +33,43 @@ module load PMIx/4.2.2-GCCcore-12.2.0
 module load UCC/1.1.0-GCCcore-12.2.0
 module load OpenMPI/4.1.4-GCC-12.2.0
 
-TOTAL_CORES=128
-NODES=2
+CORES_PER_NODE=64
+NODES=1
 
-MPI_PER_NODE_LIST="1 2 4 8 16 32 64 128"
+MPI_PER_NODE_LIST="1 2 4 8 16 32 64"
+
 
 for MPI_PER_NODE in $MPI_PER_NODE_LIST
 do
     MPI_PROCS=$((MPI_PER_NODE * NODES))
-    OMP_THREADS=$((TOTAL_CORES / MPI_PROCS))
-
+    
+    # Calculate OMP threads 
+    OMP_THREADS=$((CORES_PER_NODE / MPI_PER_NODE))
+    
+    # Safety check - ensure at least 1 thread
+    if [ $OMP_THREADS -lt 1 ]; then
+        OMP_THREADS=1
+    fi
+    
+    # check that available cores per MPI process do not exceed
+    if [ $OMP_THREADS -gt $((CORES_PER_NODE / MPI_PER_NODE)) ]; then
+        OMP_THREADS=$((CORES_PER_NODE / MPI_PER_NODE))
+    fi
     export OMP_NUM_THREADS=$OMP_THREADS
-    export OMP_PROC_BIND=close
-    export OMP_PLACES=cores
+    export OMP_PROC_BIND=spread
+    # export OMP_PLACES=cores
 
     echo "MPI=$MPI_PROCS  OMP=$OMP_THREADS"
 
-    mpiexec -n $MPI_PROCS --oversubscribe ./d2_SpMV
+    mpiexec --oversubscribe -n $MPI_PROCS ./d2_SpMV
 
     RESULT_NAME="plots/result_MPI${MPI_PROCS}_OMP${OMP_THREADS}.csv"
-    cp mpi_spmv_results.csv "$RESULT_NAME"
-    rm mpi_spmv_results.csv
-done
+    WRESULT_NAME="plots/weak_scaling_MPI${MPI_PROCS}_OMP${OMP_THREADS}.csv"
+    if [ -f mpi_spmv_results.csv ]; then
+        cp mpi_spmv_results.csv "$RESULT_NAME"
+    fi
+    if [ -f mpi_weak_scaling.csv ]; then
+        cp mpi_weak_scaling.csv "$WRESULT_NAME"
+    fi
+  done
+

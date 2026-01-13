@@ -50,5 +50,73 @@ else
   echo "msdoor"
 fi
 
-# volendo auto
 
+if [ ! -d "audikw_1" ]; then
+  echo "Downloading audikw_1..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/GHS_psdef/audikw_1.tar.gz
+  tar -xzf audikw_1.tar.gz
+  rm audikw_1.tar.gz
+  ls audikw_1/audikw_1.mtx
+else
+  echo "audikw_1"
+fi
+
+if [ ! -d "Queen_4147" ]; then
+  echo "Downloading Queen_4147..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/Janna/Queen_4147.tar.gz
+  tar -xzf Queen_4147.tar.gz
+  rm Queen_4147.tar.gz
+  ls Queen_4147/Queen_4147.mtx
+else
+  echo "Queen_4147"
+fi
+
+if [ ! -d "Serena" ]; then
+  echo "Downloading Serena..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/Janna/Serena.tar.gz
+  tar -xzf Serena.tar.gz
+  rm Serena.tar.gz
+  ls Serena/Serena.mtx
+else
+  echo "Serena"
+fi
+
+if [ ! -d "ldoor" ]; then
+  echo "Downloading ldoor..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/GHS_psdef/ldoor.tar.gz
+  tar -xzf ldoor.tar.gz
+  rm ldoor.tar.gz
+  ls ldoor/ldoor.mtx
+else
+  echo "ldoor"
+fi
+
+if [ ! -d "Freescale1" ]; then
+  echo "Downloading Freescale1..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/Freescale/Freescale1.tar.gz
+  tar -xzf Freescale1.tar.gz
+  rm Freescale1.tar.gz
+  ls Freescale1/Freescale1.mtx
+else
+  echo "Freescale1"
+fi
+
+if [ ! -d "G3_circuit" ]; then
+  echo "Downloading G3_circuit..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/AMD/G3_circuit.tar.gz
+  tar -xzf G3_circuit.tar.gz
+  rm G3_circuit.tar.gz
+  ls G3_circuit/G3_circuit.mtx
+else
+  echo "G3_circuit"
+fi
+
+if [ ! -d "Transport" ]; then
+  echo "Downloading Transport..."
+  wget https://suitesparse-collection-website.herokuapp.com/MM/Janna/Transport.tar.gz
+  tar -xzf Transport.tar.gz
+  rm Transport.tar.gz
+  ls Transport/Transport.mtx
+else
+  echo "Transport"
+fi

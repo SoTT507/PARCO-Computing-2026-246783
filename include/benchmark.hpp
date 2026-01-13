@@ -1,3 +1,4 @@
+#pragma once
 #include "pch.h"
 #include "s_matrix.hpp"
 #include "d_matrix.hpp"
@@ -8,9 +9,17 @@ public:
     double average;
     double min_time;
     double max_time;
-    std::vector<double> run_times;
+    // [ADDED] Breakdown metrics
+    double avg_comm_time = 0.0;
+    double avg_comp_time = 0.0;
 
-    void calculate(const std::vector<double>& times);
+    std::vector<double> run_times;
+    std::vector<double> comm_times; // [ADDED]
+    std::vector<double> comp_times; // [ADDED]
+
+    void calculate(const std::vector<double>& times,
+                   const std::vector<double>& comms = {},
+                   const std::vector<double>& comps = {});
 };
 
 class SparseMatrixBenchmark {
@@ -47,7 +56,7 @@ public:
 
     // Main benchmark runner
     void runFullBenchmark();
-   
+
 
   // ====================== D2 =======================
   // ================ IMPLEMENTATION =================
@@ -57,11 +66,12 @@ public:
   static void writeMPIcsvHeader(const std::string& filename);
 
     //Dedicated MPI CSV Row writer --> if not the csv would be a mess
-  static void writeMPIcsvRow(const std::string& filename, 
+  static void writeMPIcsvRow(const std::string& filename,
                                 const std::string& matrix,
-                                const std::string& partitioning, 
+                                const std::string& partitioning,
                                 int mpi_procs,
                                 int omp_threads,
                                 int nnz,
+                                double max_mem_mb,
                                 const BenchmarkResult& result);
 };

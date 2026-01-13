@@ -1,6 +1,7 @@
 d1_SpMV
 d2_SpMV
 mpi_spmv_results.csv
+mpi_weak_scaling.csv
 /build/
 /thirdparty/*
 !/thirdparty/getmatrices.sh

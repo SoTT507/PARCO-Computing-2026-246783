@@ -34,12 +34,12 @@ mv ./d2_SpMV ../
 cd ..
 
 cd thirdparty
-./getmatrices_test.sh
+./getmatrices.sh
 cd ..
 
-TOTAL_CORES=$(nproc)
+TOTAL_CORES=128
 
-for MPI_PROCS in 1 2 4 8
+for MPI_PROCS in 1 2 4 8 16 32 64 128
   do
     OMP_THREADS=$((TOTAL_CORES / MPI_PROCS))
     if [ $OMP_THREADS -lt 1 ]; then
@@ -48,15 +48,17 @@ for MPI_PROCS in 1 2 4 8
 
     export OMP_NUM_THREADS=$OMP_THREADS
     export OMP_PROC_BIND=spread
-    export OMP_PLACES=cores
+    # export OMP_PLACES=cores
 
     echo "MPI=$MPI_PROCS  OMP=$OMP_THREADS"
     mpiexec --oversubscribe -n $MPI_PROCS ./d2_SpMV
   
     RESULT_NAME="plots/result_MPI${MPI_PROCS}_OMP${OMP_THREADS}.csv"
+    WRESULT_NAME="plots/weak_scaling_MPI${MPI_PROCS}_OMP${OMP_THREADS}.csv"
     cp mpi_spmv_results.csv "$RESULT_NAME"
+    cp mpi_weak_scaling.csv "$WRESULT_NAME"
   done
-cd plot
+cd plots
 
 python3 mpi_plot.py
 

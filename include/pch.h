@@ -18,4 +18,5 @@
 #include <filesystem>
 #include <omp.h>
 #include <pthread.h>
+#include <unordered_set>
 #include <mpi.h>

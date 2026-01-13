@@ -1,3 +1,0 @@
-matrix,partitioning,mpi_procs,omp_threads,nnz,p90_ms,avg_ms,min_ms,max_ms,gflops
-1138_bus,1D,4,2,4054,18.999743,14.124433,7.704729,19.525638,0.0006
-1138_bus,2D,4,2,4054,33.998455,26.893755,17.995519,41.533037,0.0003
