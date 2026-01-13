@@ -154,7 +154,7 @@ int main(int argc, char **argv) {
                 std::cout << "      Avg time: " << res1_seq.average << " ms" << std::endl;
                 std::cout << "      Max memory: " << mem_mb_1 << " MB" << std::endl;
 
-                SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "1D_Sequential",
+                SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "1D",
                                                       size, omp_threads, global_seq.nnz,
                                                       mem_mb_1, res1_seq);
             }
@@ -180,7 +180,7 @@ int main(int argc, char **argv) {
                     std::cout << "      Avg time: " << res2_seq.average << " ms" << std::endl;
                     std::cout << "      Max memory: " << mem_mb_2 << " MB" << std::endl;
 
-                    SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "2D_Sequential",
+                    SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "2D",
                                                           size, omp_threads, global_seq.nnz,
                                                           mem_mb_2, res2_seq);
                 }
@@ -196,36 +196,83 @@ int main(int argc, char **argv) {
             }
 
             if (rank == 0) {
-                std::cout << "  Using parallel file reading constructor..." << std::endl;
+                std::cout << "  Testing parallel file reading..." << std::endl;
             }
 
-            // IMPORTANT: Now we actually use the parallel constructor!
-            // This should trigger parallel file reading
+            // Try parallel I/O, fallback to sequential if it fails
+            bool parallel_success = true;
+            COOMatrix global_par;
+            
+            // First, try to get metadata to know the real nnz
+            int actual_nnz = 0;
             try {
-                // Test 1D Partitioning with Parallel I/O
                 if (rank == 0) {
-                    std::cout << "  Testing 1D Partitioning (Parallel I/O)..." << std::endl;
+                    // Read just the metadata to get actual nnz
+                    COOMatrix meta_check;
+                    meta_check.readMatrixMarket(path);
+                    actual_nnz = meta_check.nnz;
+                    std::cout << "  Matrix has " << actual_nnz << " non-zeros" << std::endl;
                 }
+                MPI_Bcast(&actual_nnz, 1, MPI_INT, 0, MPI_COMM_WORLD);
+            } catch (...) {
+                parallel_success = false;
+            }
 
-                DistributedMatrix A1_par(path, Partitioning::OneD, MPI_COMM_WORLD);
-
-                // Get global dimensions from the matrix object
-                int global_rows = A1_par.global_rows;
-                int global_cols = A1_par.global_cols;
+            // Now try parallel reading
+            DistributedMatrix* A1_par = nullptr;
+            DistributedMatrix* A2_par = nullptr;
+            
+            try {
+                if (rank == 0) {
+                    std::cout << "  Attempting parallel 1D partitioning..." << std::endl;
+                }
                 
-                // Note: We don't have the global nnz easily available in parallel mode
-                // We'll need to add a method to get it or compute it
-                int estimated_nnz = 0; // We'll fix this later
+                // Use parallel constructor
+                A1_par = new DistributedMatrix(path, Partitioning::OneD, MPI_COMM_WORLD);
+                
+                // Validate: check if local CSR has reasonable nnz
+                size_t local_nnz = A1_par->local_csr.nnz;
+                size_t total_nnz = 0;
+                MPI_Allreduce(&local_nnz, &total_nnz, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+                
+                if (rank == 0) {
+                    std::cout << "  Parallel reading reports " << total_nnz << " total non-zeros" << std::endl;
+                    std::cout << "  Actual matrix has " << actual_nnz << " non-zeros" << std::endl;
+                }
+                
+                // If the reported nnz is wildly different from actual, parallel reading failed
+                if (total_nnz == 0 || abs((long long)total_nnz - (long long)actual_nnz) > actual_nnz * 0.5) {
+                    if (rank == 0) {
+                        std::cout << "  Parallel I/O validation failed (nnz mismatch)" << std::endl;
+                        std::cout << "  Falling back to sequential I/O..." << std::endl;
+                    }
+                    parallel_success = false;
+                    delete A1_par;
+                    A1_par = nullptr;
+                }
+            } catch (const std::exception& e) {
+                if (rank == 0) {
+                    std::cerr << "  Parallel I/O error: " << e.what() << std::endl;
+                    std::cout << "  Falling back to sequential I/O..." << std::endl;
+                }
+                parallel_success = false;
+                if (A1_par) {
+                    delete A1_par;
+                    A1_par = nullptr;
+                }
+            }
 
-                std::vector<double> x_global_par(global_cols, 1.0);
+            if (parallel_success && A1_par) {
+                // Parallel I/O succeeded - run benchmarks
+                std::vector<double> x_global_par(A1_par->global_cols, 1.0);
 
-                size_t local_mem_bytes_1_par = A1_par.getLocalMemoryUsage();
+                size_t local_mem_bytes_1_par = A1_par->getLocalMemoryUsage();
                 size_t max_mem_bytes_1_par = 0;
                 MPI_Reduce(&local_mem_bytes_1_par, &max_mem_bytes_1_par, 1,
                            MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
                 double mem_mb_1_par = max_mem_bytes_1_par / (1024.0 * 1024.0);
 
-                BenchmarkResult res1_par = SparseMatrixBenchmark::benchmark_spmv(A1_par, x_global_par, 10);
+                BenchmarkResult res1_par = SparseMatrixBenchmark::benchmark_spmv(*A1_par, x_global_par, 10);
 
                 if (rank == 0) {
                     std::cout << "    1D Parallel I/O Results:" << std::endl;
@@ -233,47 +280,127 @@ int main(int argc, char **argv) {
                     std::cout << "      Max memory: " << mem_mb_1_par << " MB" << std::endl;
 
                     SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "1D",
-                                                          size, omp_threads, estimated_nnz,
+                                                          size, omp_threads, actual_nnz,
                                                           mem_mb_1_par, res1_par);
                 }
 
                 // Test 2D Partitioning with Parallel I/O if size > 1
                 if (size > 1) {
-                    if (rank == 0) {
-                        std::cout << "  Testing 2D Partitioning (Parallel I/O)..." << std::endl;
+                    try {
+                        if (rank == 0) {
+                            std::cout << "  Attempting parallel 2D partitioning..." << std::endl;
+                        }
+                        
+                        A2_par = new DistributedMatrix(path, Partitioning::TwoD, MPI_COMM_WORLD);
+                        
+                        size_t local_mem_bytes_2_par = A2_par->getLocalMemoryUsage();
+                        size_t max_mem_bytes_2_par = 0;
+                        MPI_Reduce(&local_mem_bytes_2_par, &max_mem_bytes_2_par, 1,
+                                   MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+                        double mem_mb_2_par = max_mem_bytes_2_par / (1024.0 * 1024.0);
+
+                        BenchmarkResult res2_par = SparseMatrixBenchmark::benchmark_spmv(*A2_par, x_global_par, 10);
+
+                        if (rank == 0) {
+                            std::cout << "    2D Parallel I/O Results:" << std::endl;
+                            std::cout << "      Avg time: " << res2_par.average << " ms" << std::endl;
+                            std::cout << "      Max memory: " << mem_mb_2_par << " MB" << std::endl;
+
+                            SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "2D",
+                                                                  size, omp_threads, actual_nnz,
+                                                                  mem_mb_2_par, res2_par);
+                        }
+                    } catch (const std::exception& e) {
+                        if (rank == 0) {
+                            std::cout << "  Parallel 2D failed, skipping..." << std::endl;
+                        }
                     }
-
-                    DistributedMatrix A2_par(path, Partitioning::TwoD, MPI_COMM_WORLD);
-
-                    size_t local_mem_bytes_2_par = A2_par.getLocalMemoryUsage();
-                    size_t max_mem_bytes_2_par = 0;
-                    MPI_Reduce(&local_mem_bytes_2_par, &max_mem_bytes_2_par, 1,
-                               MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
-                    double mem_mb_2_par = max_mem_bytes_2_par / (1024.0 * 1024.0);
-
-                    BenchmarkResult res2_par = SparseMatrixBenchmark::benchmark_spmv(A2_par, x_global_par, 10);
-
-                    if (rank == 0) {
-                        std::cout << "    2D Parallel I/O Results:" << std::endl;
-                        std::cout << "      Avg time: " << res2_par.average << " ms" << std::endl;
-                        std::cout << "      Max memory: " << mem_mb_2_par << " MB" << std::endl;
-
-                        SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "2D",
-                                                              size, omp_threads, estimated_nnz,
-                                                              mem_mb_2_par, res2_par);
-                    }
-                }
-            } catch (const std::exception& e) {
-                if (rank == 0) {
-                    std::cerr << "Error in parallel I/O: " << e.what() << std::endl;
-                    std::cout << "  Falling back to sequential I/O for this matrix..." << std::endl;
                 }
                 
-                // Fallback to sequential if parallel fails
-                // (You can implement this if needed)
+                // Cleanup
+                delete A1_par;
+                if (A2_par) delete A2_par;
+            } else {
+                // Parallel I/O failed - fallback to sequential for this mode
+                if (rank == 0) {
+                    std::cout << "  Using sequential I/O as fallback for parallel mode..." << std::endl;
+                }
+                
+                // Load matrix sequentially
+                COOMatrix global_fallback;
+                
+                if (rank == 0) {
+                    try {
+                        global_fallback.readMatrixMarket(path);
+                    } catch (const std::exception& e) {
+                        std::cerr << "Error loading matrix: " << e.what() << std::endl;
+                        continue;
+                    }
+                }
+
+                // Broadcast dimensions
+                MPI_Bcast(&global_fallback.rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
+                MPI_Bcast(&global_fallback.cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
+                MPI_Bcast(&global_fallback.nnz, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+                // Allocate on non-root ranks
+                if (rank != 0) {
+                    global_fallback.row_idx.resize(global_fallback.nnz);
+                    global_fallback.col_idx.resize(global_fallback.nnz);
+                    global_fallback.values.resize(global_fallback.nnz);
+                }
+
+                // Broadcast matrix data
+                MPI_Bcast(global_fallback.row_idx.data(), global_fallback.nnz, MPI_INT, 0, MPI_COMM_WORLD);
+                MPI_Bcast(global_fallback.col_idx.data(), global_fallback.nnz, MPI_INT, 0, MPI_COMM_WORLD);
+                MPI_Bcast(global_fallback.values.data(), global_fallback.nnz, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+                std::vector<double> x_global_fallback(global_fallback.cols, 1.0);
+
+                // Run benchmarks with sequential fallback
+                DistributedMatrix A1_fallback(global_fallback, Partitioning::OneD, MPI_COMM_WORLD);
+
+                size_t local_mem_bytes_1_fb = A1_fallback.getLocalMemoryUsage();
+                size_t max_mem_bytes_1_fb = 0;
+                MPI_Reduce(&local_mem_bytes_1_fb, &max_mem_bytes_1_fb, 1,
+                           MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+                double mem_mb_1_fb = max_mem_bytes_1_fb / (1024.0 * 1024.0);
+
+                BenchmarkResult res1_fb = SparseMatrixBenchmark::benchmark_spmv(A1_fallback, x_global_fallback, 10);
+
+                if (rank == 0) {
+                    std::cout << "    1D Fallback Results:" << std::endl;
+                    std::cout << "      Avg time: " << res1_fb.average << " ms" << std::endl;
+                    std::cout << "      Max memory: " << mem_mb_1_fb << " MB" << std::endl;
+
+                    SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "1D",
+                                                          size, omp_threads, global_fallback.nnz,
+                                                          mem_mb_1_fb, res1_fb);
+                }
+
+                if (size > 1) {
+                    DistributedMatrix A2_fallback(global_fallback, Partitioning::TwoD, MPI_COMM_WORLD);
+
+                    size_t local_mem_bytes_2_fb = A2_fallback.getLocalMemoryUsage();
+                    size_t max_mem_bytes_2_fb = 0;
+                    MPI_Reduce(&local_mem_bytes_2_fb, &max_mem_bytes_2_fb, 1,
+                               MPI_UNSIGNED_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+                    double mem_mb_2_fb = max_mem_bytes_2_fb / (1024.0 * 1024.0);
+
+                    BenchmarkResult res2_fb = SparseMatrixBenchmark::benchmark_spmv(A2_fallback, x_global_fallback, 10);
+
+                    if (rank == 0) {
+                        std::cout << "    2D Fallback Results:" << std::endl;
+                        std::cout << "      Avg time: " << res2_fb.average << " ms" << std::endl;
+                        std::cout << "      Max memory: " << mem_mb_2_fb << " MB" << std::endl;
+
+                        SparseMatrixBenchmark::writeMPIcsvRow(csv_file, matrix_name, "2D",
+                                                              size, omp_threads, global_fallback.nnz,
+                                                              mem_mb_2_fb, res2_fb);
+                    }
+                }
             }
         }
-
         MPI_Barrier(MPI_COMM_WORLD);
     }
     // ============================================================
