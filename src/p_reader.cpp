@@ -12,20 +12,16 @@ void SimpleParallelReader::read_metadata(const std::string& filename,
     MPI_Comm_rank(comm, &rank);
 
     if (rank == 0) {
-        std::ifstream file(filename);
-        if (!file) {
-            throw std::runtime_error("Cannot open file: " + filename);
-        }
-
-        std::string line;
-        // Skip comments
-        while (std::getline(file, line)) {
-            if (line[0] != '%') break;
-        }
-
-        std::istringstream iss(line);
-        iss >> rows >> cols >> nnz;
-        file.close();
+        // Use COOMatrix to read metadata (which uses mmio internally)
+        COOMatrix temp;
+        temp.readMatrixMarket(filename);
+        
+        rows = temp.rows;
+        cols = temp.cols;
+        nnz = temp.nnz;
+        
+        std::cout << "METADATA (via COOMatrix): " << rows << "x" << cols 
+                  << ", nnz=" << nnz << std::endl;
     }
 
     MPI_Bcast(&rows, 1, MPI_INT, 0, comm);
@@ -36,106 +32,96 @@ void SimpleParallelReader::read_metadata(const std::string& filename,
 COOMatrix SimpleParallelReader::read_1D_cyclic(const std::string& filename,
                                                int rank, int size,
                                                MPI_Comm comm) {
+    // Step 1: Get metadata
     int rows = 0, cols = 0, nnz = 0;
     read_metadata(filename, rows, cols, nnz, comm);
-
-    // Count rows for this process
+    
+    // Step 2: Read full matrix on rank 0 using COOMatrix (which uses mmio)
+    COOMatrix global_coo;
+    if (rank == 0) {
+        std::cout << "Rank 0 reading matrix with COOMatrix::readMatrixMarket()..." << std::endl;
+        global_coo.readMatrixMarket(filename);
+        std::cout << "Rank 0 read complete: actual nnz=" << global_coo.nnz << std::endl;
+        
+        // Update nnz with actual value (after symmetric expansion)
+        nnz = global_coo.nnz;
+    }
+    
+    // Step 3: Broadcast the actual nnz (after symmetric expansion)
+    MPI_Bcast(&nnz, 1, MPI_INT, 0, comm);
+    
+    // Step 4: Resize arrays on non-root ranks
+    if (rank != 0) {
+        global_coo.row_idx.resize(nnz);
+        global_coo.col_idx.resize(nnz);
+        global_coo.values.resize(nnz);
+    }
+    
+    // Step 5: Broadcast the matrix data
+    MPI_Bcast(global_coo.row_idx.data(), nnz, MPI_INT, 0, comm);
+    MPI_Bcast(global_coo.col_idx.data(), nnz, MPI_INT, 0, comm);
+    MPI_Bcast(global_coo.values.data(), nnz, MPI_DOUBLE, 0, comm);
+    
+    // Set dimensions on all ranks
+    global_coo.rows = rows;
+    global_coo.cols = cols;
+    global_coo.nnz = nnz;
+    
+    // Step 6: Calculate which rows belong to this process (cyclic distribution)
     int local_rows = 0;
     std::vector<int> my_rows;
     for (int i = rank; i < rows; i += size) {
         my_rows.push_back(i);
         local_rows++;
     }
-
-    COOMatrix local_coo(local_rows, cols);
-    local_coo.nnz = 0;  // Initialize
-
-    // DEBUG: Print info
+    
     if (rank == 0) {
-        std::cout << "DEBUG: Matrix " << rows << "x" << cols << ", nnz=" << nnz << std::endl;
-        std::cout << "DEBUG: Process " << rank << " has " << local_rows << " local rows" << std::endl;
+        std::cout << "Distributing " << rows << " rows across " << size 
+                  << " processes (cyclic)" << std::endl;
     }
-
-    // Create a map from global row to local row index
+    
+    // Step 7: Create local COO matrix
+    COOMatrix local_coo(local_rows, cols);
+    
+    // Create mapping from global row to local row
     std::unordered_map<int, int> global_to_local;
     for (size_t i = 0; i < my_rows.size(); i++) {
-        global_to_local[my_rows[i]] = i;
+        global_to_local[my_rows[i]] = static_cast<int>(i);
     }
-
-    // Each process reads the entire file
-    std::ifstream file(filename);
-    if (!file) {
-        throw std::runtime_error("Cannot open file: " + filename);
-    }
-
-    std::string line;
-    // Skip comments
-    while (std::getline(file, line)) {
-        if (line[0] != '%') {
-            // First data line is dimensions - we already have it
-            break;
-        }
-    }
-
-    // Read matrix entries
-    int entries_read = 0;
+    
+    // Step 8: Filter entries that belong to this process
     int entries_kept = 0;
-    
-    while (entries_read < nnz && std::getline(file, line)) {
-        if (line.empty()) continue;
-        
-        std::istringstream iss(line);
-        int row, col;
-        double value;
-
-        if (iss >> row >> col >> value) {
-            // Convert from 1-based to 0-based
-            row--;
-            col--;
-            
-            // Check if this entry belongs to our process
-            auto it = global_to_local.find(row);
-            if (it != global_to_local.end()) {
-                int local_row = it->second;
-                
-                // Validate indices before adding
-                if (local_row >= 0 && local_row < local_rows && 
-                    col >= 0 && col < cols) {
-                    local_coo.addEntry(local_row, col, value);
-                    entries_kept++;
-                } else {
-                    // DEBUG: Print error
-                    std::cerr << "WARNING: Invalid indices - local_row=" << local_row 
-                              << ", col=" << col << std::endl;
-                }
-            }
-            entries_read++;
-            
-            // Progress indicator (don't worry if becomes negative --> integer overflow)
-            if (entries_read % 100000 == 0 && rank == 0) {
-                std::cout << "\r" << (entries_read*100)/nnz << "%" << std::flush;
-            }
+    for (int k = 0; k < nnz; ++k) {
+        int global_row = global_coo.row_idx[k];
+        auto it = global_to_local.find(global_row);
+        if (it != global_to_local.end()) {
+            local_coo.addEntry(it->second, global_coo.col_idx[k], global_coo.values[k]);
+            entries_kept++;
         }
     }
-
-    file.close();
     
-    // DEBUG: Print summary
+    local_coo.nnz = entries_kept;
+    
     if (rank == 0) {
-        std::cout << "DEBUG: Process " << rank << " kept " << entries_kept 
-                  << " entries out of " << nnz << std::endl;
+        std::cout << "Parallel distribution complete." << std::endl;
     }
-
-    // Verify we read all entries
-    if (entries_read != nnz) {
-        std::cerr << "WARNING: Process " << rank << " only read " << entries_read 
-                  << "/" << nnz << " entries" << std::endl;
-    }
-
+    
     return local_coo;
 }
-// In DistributedMatrix::read_local_portion
-COOMatrix DistributedMatrix::read_local_portion(const std::string& filename,
+
+// For 2D, we'll use the same approach for now
+COOMatrix SimpleParallelReader::read_2D_block(const std::string& filename,
+                                              int Pr, int Pc,
+                                              int my_r, int my_c,
+                                              MPI_Comm comm) {
+    // For now, use 1D reading as fallback
+    int size;
+    MPI_Comm_size(comm, &size);
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+    
+    return read_1D_cyclic(filename, rank, size, comm);
+}COOMatrix DistributedMatrix::read_local_portion(const std::string& filename,
                                                 Partitioning part,
                                                 MPI_Comm world) const {
     if (part == Partitioning::OneD) {
