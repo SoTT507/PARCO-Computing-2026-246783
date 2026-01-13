@@ -16,6 +16,7 @@ public:
     // MPI info
     int rank;
     int size;
+    int omp_num_threads;
     MPI_Comm comm;
     MPI_Comm row_comm;  // For 2D: processes in same row
     MPI_Comm col_comm;  // For 2D: processes in same column
