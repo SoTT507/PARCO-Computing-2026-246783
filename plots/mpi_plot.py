@@ -265,39 +265,49 @@ if weak_data is not None and len(weak_data) > 0:
     plt.savefig('weak_time.png', dpi=100, bbox_inches='tight')
     plt.show()
 
+    
     # ----------------------------
-    # GRAPH 7: Weak scaling efficiency E_weak(P) = T(1) / T(P)
-    # (Valid only because your weak setup keeps per-rank work constant.)
+    # GRAPH 7: Weak scaling efficiency Eweak(P) = Tref / T(P)
+    # - Prefer T(1) if available
+    # - Otherwise use the smallest MPI count as reference and normalize to that
     # ----------------------------
     plt.figure(figsize=(10, 6))
+
     for partitioning in ['1D', '2D']:
         part_data = weak_data[weak_data['partitioning'] == partitioning]
-        if len(part_data) > 0:
-            efficiencies = []
-            mpi_values = sorted(part_data['mpi_procs'].unique())
+        if len(part_data) == 0:
+            continue
 
-            ref = part_data[part_data['mpi_procs'] == 1]
-            if len(ref) > 0:
-                ref_time = ref['avg_ms'].iloc[0]
-                for mpi in mpi_values:
-                    mpi_data = part_data[part_data['mpi_procs'] == mpi]
-                    avg_time = mpi_data['avg_ms'].mean()
-                    efficiency = ref_time / avg_time if avg_time > 0 else 0
-                    efficiencies.append(efficiency)
+        # Avg time per MPI
+        times_by_mpi = part_data.groupby('mpi_procs')['avg_ms'].mean().sort_index()
 
-                linestyle = ':' if partitioning == '2D' else '-'
-                plt.plot(mpi_values, efficiencies, marker=markers[partitioning],
-                         linestyle=linestyle, label=f'{partitioning}', linewidth=2)
+        if len(times_by_mpi) == 0:
+            continue
 
+        # Reference time: smallest mpi
+        min_p = times_by_mpi.index.min()
+        ref_time = times_by_mpi.loc[min_p]
+        ref_label = f"T({min_p})"
+
+        efficiencies = ref_time / times_by_mpi
+
+        linestyle = ':' if partitioning == '2D' else '-'
+        plt.plot(efficiencies.index, efficiencies.values,
+                 marker=markers[partitioning],
+                 linestyle=linestyle,
+                 linewidth=2,
+                 label=f'{partitioning} (ref={ref_label})')
+
+    # Ideal weak scaling = 1
     plt.axhline(y=1.0, color='k', linestyle='--', label='Ideal', alpha=0.5)
+
     plt.xlabel('MPI Processes')
-    plt.ylabel('Weak Scaling Efficiency')
-    plt.title('Weak Scaling: Efficiency (T(1)/T(P))')
+    plt.ylabel('Weak Scaling Efficiency  (Tref / T(P))')
+    plt.title('Weak Scaling Efficiency')
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.savefig('weak_scaling.png', dpi=100, bbox_inches='tight')
     plt.show()
-
     # ----------------------------
     # GRAPH 8: Weak scaling communication vs computation time
     # ----------------------------
