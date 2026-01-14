@@ -28,6 +28,60 @@ static inline int block_size_uneven(int n, int P, int p) {
 }
 
 // -----------------------------------------------------------------------------
+// Helpers for Weak Scheduling Matrix Generation
+// -----------------------------------------------------------------------------
+static COOMatrix generate_local_weak_1d_cyclic(int global_rows, int global_cols,
+                                               int nnz_per_rank,
+                                               int rank, int size,
+                                               uint64_t seed)
+{
+    // local rows for cyclic distribution
+    int local_rows = 0;
+    for (int i = rank; i < global_rows; i += size) ++local_rows;
+
+    COOMatrix local(local_rows, global_cols);
+
+    std::mt19937_64 rng(seed + (uint64_t)rank * 1315423911ULL);
+    std::uniform_int_distribution<int> row_dist(0, local_rows - 1);
+    std::uniform_int_distribution<int> col_dist(0, global_cols - 1);
+
+    for (int k = 0; k < nnz_per_rank; ++k) {
+        int lr = row_dist(rng);
+        int gc = col_dist(rng);
+        double v = 1.0; // or random value
+        local.addEntry(lr, gc, v);
+    }
+
+    return local;
+}
+
+static COOMatrix generate_local_weak_2d_block(int global_rows, int global_cols,
+                                             int nnz_per_rank,
+                                             int Pr, int Pc,
+                                             int my_r, int my_c,
+                                             int rank,
+                                             uint64_t seed)
+{
+    int local_rows = block_size_uneven(global_rows, Pr, my_r);
+    int local_cols = block_size_uneven(global_cols, Pc, my_c);
+
+    COOMatrix local(local_rows, local_cols);
+
+    std::mt19937_64 rng(seed + (uint64_t)rank * 11400714819323198485ULL);
+    std::uniform_int_distribution<int> rdist(0, local_rows - 1);
+    std::uniform_int_distribution<int> cdist(0, local_cols - 1);
+
+    for (int k = 0; k < nnz_per_rank; ++k) {
+        int lr = rdist(rng);
+        int lc = cdist(rng);
+        double v = 1.0;
+        local.addEntry(lr, lc, v);
+    }
+
+    return local;
+}
+
+// -----------------------------------------------------------------------------
 // Constructors
 // -----------------------------------------------------------------------------
 DistributedMatrix::DistributedMatrix(const COOMatrix& global,
@@ -141,6 +195,32 @@ DistributedMatrix::DistributedMatrix(const std::string& filename,
     // global dims must come from header, not from local COO dimensions
     // (reader ensures local rows/cols match partitioning)
     initialize_from_local_coo(local, part, world);
+}
+
+// Constructor for Weak Scheduling
+DistributedMatrix::DistributedMatrix(const COOMatrix& local,
+                                     Partitioning part,
+                                     MPI_Comm world,
+                                     int global_rows_,
+                                     int global_cols_)
+{
+    MPI_Comm_rank(world, &rank);
+    MPI_Comm_size(world, &size);
+    comm = world;
+
+#ifdef _OPENMP
+    omp_num_threads = omp_get_max_threads();
+#else
+    omp_num_threads = 1;
+#endif
+
+    global_rows = global_rows_;
+    global_cols = global_cols_;
+
+    if (part == Partitioning::TwoD && size == 1) part = Partitioning::OneD;
+
+    // local is already distributed
+    initialize_partitioning(local, part, world, true);
 }
 
 DistributedMatrix DistributedMatrix::FromFileParallel(const std::string& filename,

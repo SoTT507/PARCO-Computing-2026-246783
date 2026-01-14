@@ -9,5 +9,6 @@ mpi_weak_scaling.csv
 /plots/*
 !/plots/plot.py
 !/plots/mpi_plot.py
+!/plots/mpi_plot_weak.py
 compile_commands.json
 

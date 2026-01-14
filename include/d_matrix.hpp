@@ -50,7 +50,12 @@ public:
     DistributedMatrix(const std::string& filename,
                       Partitioning part,
                       MPI_Comm world = MPI_COMM_WORLD);
-
+    // Constructor for generating synthetic matrix for Weak Scheduling Benchmark
+    DistributedMatrix(const COOMatrix& local,
+                  Partitioning part,
+                  MPI_Comm world,
+                  int global_rows_,
+                  int global_cols_);
     static DistributedMatrix FromFileParallel(const std::string& filename,
                                               Partitioning part,
                                               MPI_Comm world = MPI_COMM_WORLD);
