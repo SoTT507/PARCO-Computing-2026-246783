@@ -1,4 +1,3 @@
-// d_matrix.hpp
 #ifndef D_MATRIX_HPP
 #define D_MATRIX_HPP
 
@@ -16,6 +15,7 @@ public:
     // MPI info
     int rank;
     int size;
+    int omp_num_threads;
     MPI_Comm comm;
     MPI_Comm row_comm;  // For 2D: processes in same row
     MPI_Comm col_comm;  // For 2D: processes in same column
@@ -41,19 +41,35 @@ public:
     std::vector<int> recvcounts;
     std::vector<int> displs;
 
-    DistributedMatrix(const COOMatrix& global, Partitioning part, MPI_Comm world = MPI_COMM_WORLD);
+    DistributedMatrix(const COOMatrix& global,
+                          Partitioning part,
+                          MPI_Comm world = MPI_COMM_WORLD,
+                          bool already_distributed = false);
 
-    // SpMV with timing
+    // Constructor with parallel I/O (MPI-IO in reader)
+    DistributedMatrix(const std::string& filename,
+                      Partitioning part,
+                      MPI_Comm world = MPI_COMM_WORLD);
+    // Constructor for generating synthetic matrix for Weak Scheduling Benchmark
+    DistributedMatrix(const COOMatrix& local,
+                  Partitioning part,
+                  MPI_Comm world,
+                  int global_rows_,
+                  int global_cols_);
+    static DistributedMatrix FromFileParallel(const std::string& filename,
+                                              Partitioning part,
+                                              MPI_Comm world = MPI_COMM_WORLD);
+
+    void initialize_partitioning(const COOMatrix& matrix_data, Partitioning part, MPI_Comm world, bool is_already_distributed);
+
     void spmv(const std::vector<double>& x_global,
               std::vector<double>& y_local,
               double* comm_time_ms = nullptr,
               double* comp_time_ms = nullptr) const;
 
-    // Alternative implementation
     void spmv_2d_full(const std::vector<double>& x_global,
                       std::vector<double>& y_local) const;
 
-    // Helper functions
     void print_partitioning_info() const;
     size_t get_local_nnz() const;
     double get_load_imbalance() const;
@@ -63,9 +79,16 @@ public:
     void printInfo() const;
 
 private:
-    // Prevent copying
     DistributedMatrix(const DistributedMatrix&) = delete;
     DistributedMatrix& operator=(const DistributedMatrix&) = delete;
+
+    COOMatrix read_local_portion(const std::string& filename,
+                                 Partitioning part,
+                                 MPI_Comm world) const;
+
+    void initialize_from_local_coo(const COOMatrix& local_coo,
+                                   Partitioning part,
+                                   MPI_Comm world);
 };
 
 #endif

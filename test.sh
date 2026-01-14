@@ -51,8 +51,8 @@ for MPI_PROCS in 1 2 4 8
     export OMP_PLACES=cores
 
     echo "MPI=$MPI_PROCS  OMP=$OMP_THREADS"
-    mpiexec --oversubscribe -n $MPI_PROCS ./d2_SpMV
-  
+    mpiexec --oversubscribe -n $MPI_PROCS ./d2_SpMV --parallel-io
+
     RESULT_NAME="plots/result_MPI${MPI_PROCS}_OMP${OMP_THREADS}.csv"
     cp mpi_spmv_results.csv "$RESULT_NAME"
   done

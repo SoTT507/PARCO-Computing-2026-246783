@@ -37,32 +37,46 @@ cd thirdparty
 ./getmatrices.sh
 cd ..
 
-TOTAL_CORES=128
 
-for MPI_PROCS in 1 2 4 8 16 32 64 128
-  do
-    OMP_THREADS=$((TOTAL_CORES / MPI_PROCS))
+CORES_PER_NODE=64
+NODES=2
+
+MPI_PER_NODE_LIST="1 2 4 8 16 32 64"
+
+
+for MPI_PER_NODE in $MPI_PER_NODE_LIST
+do
+    MPI_PROCS=$((MPI_PER_NODE * NODES))
+
+    # Calculate OMP threads
+    OMP_THREADS=$((CORES_PER_NODE / MPI_PER_NODE))
+
+    # Safety check - ensure at least 1 thread
     if [ $OMP_THREADS -lt 1 ]; then
         OMP_THREADS=1
     fi
 
+    # check that available cores per MPI process do not exceed
+    if [ $OMP_THREADS -gt $((CORES_PER_NODE / MPI_PER_NODE)) ]; then
+        OMP_THREADS=$((CORES_PER_NODE / MPI_PER_NODE))
+    fi
     export OMP_NUM_THREADS=$OMP_THREADS
     export OMP_PROC_BIND=spread
     # export OMP_PLACES=cores
 
     echo "MPI=$MPI_PROCS  OMP=$OMP_THREADS"
-    mpiexec --oversubscribe -n $MPI_PROCS ./d2_SpMV
-  
+
+    mpiexec --oversubscribe -n $MPI_PROCS ./d2_SpMV --parallel-io
+
     RESULT_NAME="plots/result_MPI${MPI_PROCS}_OMP${OMP_THREADS}.csv"
     WRESULT_NAME="plots/weak_scaling_MPI${MPI_PROCS}_OMP${OMP_THREADS}.csv"
-    cp mpi_spmv_results.csv "$RESULT_NAME"
-    cp mpi_weak_scaling.csv "$WRESULT_NAME"
+    if [ -f mpi_spmv_results.csv ]; then
+        cp mpi_spmv_results.csv "$RESULT_NAME"
+    fi
+    if [ -f mpi_weak_scaling.csv ]; then
+        cp mpi_weak_scaling.csv "$WRESULT_NAME"
+    fi
   done
-cd plots
-
-python3 mpi_plot.py
-
-cd ..
 
 echo "====================================================="
 echo "   Program built and run completed successfully :)   "

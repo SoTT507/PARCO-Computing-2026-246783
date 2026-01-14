@@ -1,0 +1,2 @@
+matrix,partitioning,mpi_procs,omp_threads,nnz,max_mem_mb,p90_ms,avg_ms,min_ms,max_ms,avg_comm_ms,avg_comp_ms,gflops
+1138_bus_1D,Parallel,1,8,4054,0.0507,0.328482,0.294482,0.237405,0.386782,0.000000,0.293053,0.0275

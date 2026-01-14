@@ -18,7 +18,14 @@ def load_data(pattern):
 
 # Load data
 strong_data = load_data("result_MPI*.csv")
-weak_data = load_data("weak_scaling_MPI*.csv") if glob.glob("weak_scaling_MPI*.csv") else None
+
+# Weak scaling can be exported either as a single file (mpi_weak_scaling.csv)
+# or as multiple files (weak_scaling_MPI*.csv). Support both.
+weak_data = None
+if glob.glob("mpi_weak_scaling.csv"):
+    weak_data = load_data("mpi_weak_scaling.csv")
+elif glob.glob("weak_scaling_MPI*.csv"):
+    weak_data = load_data("weak_scaling_MPI*.csv")
 
 # Calculate baselines for speedup
 baselines = {}
@@ -232,19 +239,43 @@ plt.grid(True, alpha=0.3, axis='y')
 plt.savefig('comm_comp_ratio.png', dpi=100, bbox_inches='tight')
 plt.show()
 
-# GRAPH 6: Weak Scaling (if data exists)
+# GRAPH 6+: Weak Scaling (if data exists)
 if weak_data is not None and len(weak_data) > 0:
-    plt.figure(figsize=(10, 6))
-    # For weak scaling, use different markers for each partitioning
+    # Use different markers for each partitioning
     markers = {'1D': 'o', '2D': 's'}
-    
+
+    # ----------------------------
+    # GRAPH 6: Weak scaling execution time (key plot)
+    # ----------------------------
+    plt.figure(figsize=(10, 6))
+    for partitioning in ['1D', '2D']:
+        part_data = weak_data[weak_data['partitioning'] == partitioning]
+        if len(part_data) > 0:
+            times_by_mpi = part_data.groupby('mpi_procs')['avg_ms'].mean()
+            linestyle = ':' if partitioning == '2D' else '-'
+            plt.plot(times_by_mpi.index, times_by_mpi.values,
+                     marker=markers[partitioning], linestyle=linestyle,
+                     label=f'{partitioning}', linewidth=2)
+
+    plt.xlabel('MPI Processes')
+    plt.ylabel('Execution Time (ms)')
+    plt.title('Weak Scaling: Execution Time')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.savefig('weak_time.png', dpi=100, bbox_inches='tight')
+    plt.show()
+
+    # ----------------------------
+    # GRAPH 7: Weak scaling efficiency E_weak(P) = T(1) / T(P)
+    # (Valid only because your weak setup keeps per-rank work constant.)
+    # ----------------------------
+    plt.figure(figsize=(10, 6))
     for partitioning in ['1D', '2D']:
         part_data = weak_data[weak_data['partitioning'] == partitioning]
         if len(part_data) > 0:
             efficiencies = []
             mpi_values = sorted(part_data['mpi_procs'].unique())
-            
-            # Calculate weak scaling efficiency
+
             ref = part_data[part_data['mpi_procs'] == 1]
             if len(ref) > 0:
                 ref_time = ref['avg_ms'].iloc[0]
@@ -253,20 +284,69 @@ if weak_data is not None and len(weak_data) > 0:
                     avg_time = mpi_data['avg_ms'].mean()
                     efficiency = ref_time / avg_time if avg_time > 0 else 0
                     efficiencies.append(efficiency)
-                
-                # Use dotted line for 2D partitioning
+
                 linestyle = ':' if partitioning == '2D' else '-'
-                plt.plot(mpi_values, efficiencies, marker=markers[partitioning], 
-                        linestyle=linestyle, label=f'{partitioning}', linewidth=2)
-    
+                plt.plot(mpi_values, efficiencies, marker=markers[partitioning],
+                         linestyle=linestyle, label=f'{partitioning}', linewidth=2)
+
     plt.axhline(y=1.0, color='k', linestyle='--', label='Ideal', alpha=0.5)
     plt.xlabel('MPI Processes')
     plt.ylabel('Weak Scaling Efficiency')
-    plt.title('Weak Scaling Performance')
+    plt.title('Weak Scaling: Efficiency (T(1)/T(P))')
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.savefig('weak_scaling.png', dpi=100, bbox_inches='tight')
     plt.show()
+
+    # ----------------------------
+    # GRAPH 8: Weak scaling communication vs computation time
+    # ----------------------------
+    if 'avg_comm_ms' in weak_data.columns and 'avg_comp_ms' in weak_data.columns:
+        plt.figure(figsize=(10, 6))
+        for partitioning in ['1D', '2D']:
+            part_data = weak_data[weak_data['partitioning'] == partitioning]
+            if len(part_data) > 0:
+                comm_by_mpi = part_data.groupby('mpi_procs')['avg_comm_ms'].mean()
+                comp_by_mpi = part_data.groupby('mpi_procs')['avg_comp_ms'].mean()
+                plt.plot(comm_by_mpi.index, comm_by_mpi.values,
+                         linestyle='--', marker=markers[partitioning],
+                         label=f'{partitioning} comm', linewidth=2)
+                plt.plot(comp_by_mpi.index, comp_by_mpi.values,
+                         linestyle='-', marker=markers[partitioning],
+                         label=f'{partitioning} comp', linewidth=2)
+
+        plt.xlabel('MPI Processes')
+        plt.ylabel('Time (ms)')
+        plt.title('Weak Scaling: Communication vs Computation')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.savefig('weak_comm_comp.png', dpi=100, bbox_inches='tight')
+        plt.show()
+
+    # ----------------------------
+    # GRAPH 9: Weak scaling GFLOPs per rank
+    # Total GFLOPs grows with P in weak scaling; per-rank should be ~flat.
+    # ----------------------------
+    if 'gflops' in weak_data.columns:
+        plt.figure(figsize=(10, 6))
+        for partitioning in ['1D', '2D']:
+            part_data = weak_data[weak_data['partitioning'] == partitioning]
+            if len(part_data) > 0:
+                gflops_by_mpi = part_data.groupby('mpi_procs')['gflops'].mean()
+                mpi_vals = gflops_by_mpi.index.values.astype(float)
+                gflops_per_rank = gflops_by_mpi.values / mpi_vals
+                linestyle = ':' if partitioning == '2D' else '-'
+                plt.plot(mpi_vals, gflops_per_rank,
+                         marker=markers[partitioning], linestyle=linestyle,
+                         label=f'{partitioning}', linewidth=2)
+
+        plt.xlabel('MPI Processes')
+        plt.ylabel('GFLOPs / rank')
+        plt.title('Weak Scaling: Per-rank GFLOPs')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.savefig('weak_gflops_per_rank.png', dpi=100, bbox_inches='tight')
+        plt.show()
 
 print("\nGraphs saved with:")
 print("- Same color for each matrix across all graphs")
@@ -281,4 +361,7 @@ print("3. efficiency.png")
 print("4. gflops.png")
 print("5. comm_comp_ratio.png")
 if weak_data is not None:
-    print("6. weak_scaling.png")
+    print("6. weak_time.png")
+    print("7. weak_scaling.png")
+    print("8. weak_comm_comp.png")
+    print("9. weak_gflops_per_rank.png")
