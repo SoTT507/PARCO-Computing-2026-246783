@@ -35,7 +35,6 @@ the local SpMV implementation developed in Deliverable 1.
 
 ### Data Partitioning
 
-<<<<<<< HEAD
 #### 1D Partitioning (Required)
 - Row-wise cyclic distribution
   where \( P \) is the number of MPI processes and \( i \) is the global row index.
