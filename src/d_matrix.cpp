@@ -284,7 +284,7 @@ void DistributedMatrix::initialize_partitioning(const COOMatrix& matrix_data,
 
     if (part == Partitioning::OneD || size == 1) {
         // 1D cyclic rows: global_cols is the COO columns (global),
-        // global_rows inferred from local_rows across ranks.
+        // global_rows inferred from local_rows across ranks
         local_rows = matrix_data.rows;
         local_cols = matrix_data.cols;
 
