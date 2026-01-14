@@ -18,18 +18,18 @@ struct MMHeaderInfo {
 
 class SimpleParallelReader {
 public:
-    // Parse MatrixMarket header using mmio on rank 0, broadcast to all ranks.
+    // Parse MatrixMarket header using mmio on rank 0, broadcast to all ranks
     static MMHeaderInfo read_mmio_header(const std::string& filename, MPI_Comm comm);
 
-    // Bonus: MPI-IO implementation (MPI_File_read_at_all) for 1D cyclic partitioning.
-    // Keeps only entries for owner(row)=row%P, stores LOCAL row indices.
+    // MPI-IO implementation (MPI_File_read_at_all) for 1D cyclic partitioning
+    // Keeps only entries for owner(row)=row%P, stores LOCAL row indices
     static COOMatrix read_1D_cyclic_mpiio(const std::string& filename,
                                           int rank, int size,
                                           MPI_Comm comm);
 
-    // Bonus: MPI-IO + owner-by-grid redistribution for 2D block partitioning.
-    // Each rank parses a chunk, then sends each entry to its owning block rank.
-    // Output COO uses LOCAL row/col indices within the owned block.
+    // MPI-IO + owner-by-grid redistribution for 2D block partitioning
+    // each rank parses a chunk, then sends each entry to its owning block rank
+    // output COO uses LOCAL row/col indices within the owned block.
     static COOMatrix read_2D_block_mpiio_redistribute(const std::string& filename,
                                                       int Pr, int Pc,
                                                       int my_r, int my_c,

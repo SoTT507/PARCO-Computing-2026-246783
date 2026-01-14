@@ -47,3 +47,4 @@
 - FLOPs
 - Communication vs computation breakdown
 - Memory footprint per rank
+

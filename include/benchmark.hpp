@@ -9,13 +9,12 @@ public:
     double average;
     double min_time;
     double max_time;
-    // [ADDED] Breakdown metrics
     double avg_comm_time = 0.0;
     double avg_comp_time = 0.0;
 
     std::vector<double> run_times;
-    std::vector<double> comm_times; // [ADDED]
-    std::vector<double> comp_times; // [ADDED]
+    std::vector<double> comm_times;
+    std::vector<double> comp_times;
 
     void calculate(const std::vector<double>& times,
                    const std::vector<double>& comms = {},

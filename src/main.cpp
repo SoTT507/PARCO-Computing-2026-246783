@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
             if (!ok) {
                 MPI_Barrier(MPI_COMM_WORLD);
             } else {
-                // IMPORTANT: do not broadcast COO arrays. Constructor will broadcast dims and distribute nnz.
+                // IMPORTANT: do not broadcast COO arrays --> constructor will broadcast dims and distribute nnz
                 DistributedMatrix A1(global, Partitioning::OneD, MPI_COMM_WORLD, false);
                 std::vector<double> x(A1.global_cols, 1.0);
 
@@ -223,7 +223,7 @@ int main(int argc, char **argv) {
     }
 
 // ============================================================
-// WEAK SCALING (Random Matrix with uniform NNZ per rank) — distributed synthetic generation
+// WEAK SCALING (Random Matrix with uniform NNZ per rank)
 // ============================================================
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -247,7 +247,7 @@ if (rank == 0) {
 }
 
 // ------------------------------------------------------------
-// Helpers (put these near the top of main.cpp or as lambdas)
+// Helpers 
 // ------------------------------------------------------------
 auto gen_local_1d_cyclic = [&](int Grows, int Gcols, int nnz_rank) -> COOMatrix {
     // local rows for cyclic distribution
@@ -273,7 +273,7 @@ auto gen_local_1d_cyclic = [&](int Grows, int Gcols, int nnz_rank) -> COOMatrix 
 
 auto gen_local_2d_block = [&](int Grows, int Gcols, int nnz_rank,
                               int Pr, int Pc, int my_r, int my_c) -> COOMatrix {
-    // Must match the uneven block scheme used in reader/2D partitioning
+    // must match the uneven block scheme used in reader/2D partitioning
     auto block_start_uneven = [](int n, int P, int p) {
         int base = n / P, rem = n % P;
         return p * base + std::min(p, rem);
@@ -308,7 +308,6 @@ auto gen_local_2d_block = [&](int Grows, int Gcols, int nnz_rank,
 {
     COOMatrix local_1d = gen_local_1d_cyclic(global_rows_ws, global_cols_ws, nnz_per_rank);
 
-    // IMPORTANT: use the constructor that accepts explicit global dims
     DistributedMatrix A1(local_1d, Partitioning::OneD, MPI_COMM_WORLD,
                          global_rows_ws, global_cols_ws);
 

@@ -378,13 +378,13 @@ BenchmarkResult SparseMatrixBenchmark::benchmark_spmv(const DistributedMatrix& A
     std::vector<double> y;
 
     std::vector<double> global_run_times;
-    std::vector<double> global_comm_times;  // [ADDED]
-    std::vector<double> global_comp_times;  // [ADDED]
+    std::vector<double> global_comm_times;
+    std::vector<double> global_comp_times;
 
     if (A.rank == 0) {
         global_run_times.reserve(runs);
-        global_comm_times.reserve(runs);  // [ADDED]
-        global_comp_times.reserve(runs);  // [ADDED]
+        global_comm_times.reserve(runs);
+        global_comp_times.reserve(runs);
     }
 
     for (int r = 0; r < runs; ++r) {
@@ -481,7 +481,7 @@ void SparseMatrixBenchmark::writeMPIcsvRow(const std::string& filename,
                                               int mpi_procs,
                                               int omp_threads,
                                               int nnz,
-                                              double max_mem_mb, // [NEW ARGUMENT]
+                                              double max_mem_mb,
                                               const BenchmarkResult& r) {
     std::ofstream file(filename, std::ios::app);
     if(file.is_open()){
@@ -492,7 +492,7 @@ void SparseMatrixBenchmark::writeMPIcsvRow(const std::string& filename,
              << mpi_procs << ","
              << omp_threads << ","
              << nnz << ","
-             << std::fixed << std::setprecision(4) << max_mem_mb << "," // [WRITE MEMORY]
+             << std::fixed << std::setprecision(4) << max_mem_mb << ","
              << std::setprecision(6) << r.percentile_90 << ","
              << r.average << ","
              << r.min_time << ","

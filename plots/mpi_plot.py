@@ -18,14 +18,7 @@ def load_data(pattern):
 
 # Load data
 strong_data = load_data("result_MPI*.csv")
-
-# Weak scaling can be exported either as a single file (mpi_weak_scaling.csv)
-# or as multiple files (weak_scaling_MPI*.csv). Support both.
-weak_data = None
-if glob.glob("mpi_weak_scaling.csv"):
-    weak_data = load_data("mpi_weak_scaling.csv")
-elif glob.glob("weak_scaling_MPI*.csv"):
-    weak_data = load_data("weak_scaling_MPI*.csv")
+weak_data = load_data("weak_scaling_MPI*.csv")
 
 # Calculate baselines for speedup
 baselines = {}

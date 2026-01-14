@@ -1,4 +1,3 @@
-// p_reader.cpp
 #include "p_reader.hpp"
 #include "mmio.h"
 
@@ -161,7 +160,7 @@ COOMatrix SimpleParallelReader::read_1D_cyclic_mpiio(const std::string& filename
                                           : (h.data_start + (MPI_Offset)(rank + 1) * chunk);
 
     // overlap so we can safely scan to newline
-    const MPI_Offset overlap = (MPI_Offset)(1 << 20); // 1 MiB
+    const MPI_Offset overlap = (MPI_Offset)(1 << 20); 
     MPI_Offset read_start = (rank == 0) ? start : std::max(h.data_start, start - overlap);
     MPI_Offset read_end   = (rank == size - 1) ? end   : std::min(file_size, end + overlap);
     MPI_Offset read_nbytes = read_end - read_start;
@@ -249,8 +248,9 @@ COOMatrix SimpleParallelReader::read_1D_cyclic_mpiio(const std::string& filename
 // ------------------------------------------------------------
 // MPI-IO + owner-by-grid redistribution for 2D partitioning
 // Each rank reads a chunk, parses triplets, and sends each entry to the
-// owning (pr,pc) rank. Owner uses uneven block partitioning.
-// COO stored with LOCAL row/col indices inside the owner's block.
+// owning (pr,pc) rank --> owner uses uneven block partitioning
+//
+// COO stored with LOCAL row/col indices inside the owner's block
 // ------------------------------------------------------------
 COOMatrix SimpleParallelReader::read_2D_block_mpiio_redistribute(const std::string& filename,
                                                                 int Pr, int Pc,

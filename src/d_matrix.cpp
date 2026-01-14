@@ -107,15 +107,15 @@ DistributedMatrix::DistributedMatrix(const COOMatrix& global,
     }
 
     if (!already_distributed) {
-        // REQUIRED BASELINE:
-        // rank0 holds full COO (caller loads it), distribute entries to owners.
+        
+        // rank0 holds full COO (caller loads it), distribute entries to owners (baseline req)
 
         int dims_bcast[3] = {global.rows, global.cols, global.nnz};
         MPI_Bcast(dims_bcast, 3, MPI_INT, 0, world);
         global_rows = dims_bcast[0];
         global_cols = dims_bcast[1];
 
-        // Distribute nnz by cyclic row owner(row)=row%P, then build local COO with local row indices.
+        // Distribute nnz by cyclic row owner(row)=row%P, then build local COO with local row indices
         std::vector<int> sendcounts(size, 0), displs_(size, 0);
         std::vector<int> flat_r, flat_c;
         std::vector<double> flat_v;
@@ -192,7 +192,7 @@ DistributedMatrix::DistributedMatrix(const std::string& filename,
 
     COOMatrix local = read_local_portion(filename, part, world);
 
-    // global dims must come from header, not from local COO dimensions
+    // IMPORTANT!!! better to acquire global dims from header, not from local COO dimensions
     // (reader ensures local rows/cols match partitioning)
     initialize_from_local_coo(local, part, world);
 }
@@ -260,10 +260,9 @@ void DistributedMatrix::initialize_from_local_coo(const COOMatrix& local_coo,
                                                   Partitioning part,
                                                   MPI_Comm world)
 {
-    // We need global dims; for MPI-IO readers, we infer them by communicating.
-    // In practice, your readers build local dims consistent with partitioning and you still
-    // need to set global_rows/global_cols. The simplest: take max over derived starts+sizes.
-    // We set them in initialize_partitioning by broadcasting sizes in the 2D setup.
+    //============================== IMPORTANT ============================
+    // set global_rows/global_cols in initialize_partitioning by broadcasting sizes in the 2D setup.
+    //=====================================================================
     initialize_partitioning(local_coo, part, world, true);
 }
 
@@ -272,9 +271,9 @@ void DistributedMatrix::initialize_partitioning(const COOMatrix& matrix_data,
                                                 MPI_Comm world,
                                                 bool is_already_distributed)
 {
-    // If we entered here with local COO, global dims may not be set correctly.
-    // For 1D, matrix_data.cols is global cols, matrix_data.rows is local rows.
-    // For 2D, both are local. We compute global dims consistently below.
+    // If we entered here with local COO, global dims may not be set correctly
+    // For 1D, matrix_data.cols is global cols, matrix_data.rows is local rows
+    // For 2D, both are local. We compute global dims consistently below
     MPI_Comm_rank(world, &rank);
     MPI_Comm_size(world, &size);
     comm = world;
@@ -300,15 +299,13 @@ void DistributedMatrix::initialize_partitioning(const COOMatrix& matrix_data,
     }
 
     // ---------------- 2D ----------------
-    // IMPORTANT correctness: DO NOT allow reorder unless you also use cart_rank.
-    // Your mapping assumes rank = my_r*Pc + my_c.
     dims[0] = 0; dims[1] = 0;
     MPI_Dims_create(size, 2, dims);
     Pr = dims[0];
     Pc = dims[1];
 
     int periods[2] = {0, 0};
-    MPI_Cart_create(world, 2, dims, periods, 0, &comm); // reorder=0 is critical
+    MPI_Cart_create(world, 2, dims, periods, 0, &comm);
     MPI_Cart_coords(comm, rank, 2, coords); 
 
     MPI_Comm_rank(comm, &rank);
@@ -319,21 +316,19 @@ void DistributedMatrix::initialize_partitioning(const COOMatrix& matrix_data,
     my_r = coords[0];
     my_c = coords[1];
 
-    row_start = block_start_uneven(matrix_data.rows * Pr, Pr, my_r); // fallback; will be overwritten
+    row_start = block_start_uneven(matrix_data.rows * Pr, Pr, my_r);
     col_start = block_start_uneven(matrix_data.cols * Pc, Pc, my_c);
 
     // Build row/col communicators
     MPI_Comm_split(comm, my_r, my_c, &row_comm);
     MPI_Comm_split(comm, my_c, my_r, &col_comm);
 
-    // Compute my local block sizes from the local COO itself (already correct)
+    // Compute my local block sizes from the local COO itself 
     local_rows = matrix_data.rows;
     local_cols = matrix_data.cols;
 
-    // Compute global dims by reducing starts+sizes
-    // We need actual block starts/sizes; reconstruct from uneven scheme based on total.
-    // We approximate total by summing along a dimension: for rows sum over my_r in column 0, similarly cols.
-    // Here we do robust computation: all ranks in column 0 contribute local_rows to total rows; take max.
+    // compute global dims by reducing starts+sizes
+    // all ranks in column 0 contribute local_rows to total rows --> take max
     int rows_in_col = 0;
     int cols_in_row = 0;
 
@@ -343,13 +338,13 @@ void DistributedMatrix::initialize_partitioning(const COOMatrix& matrix_data,
     int row0 = (my_r == 0) ? local_cols : 0;
     MPI_Allreduce(&row0, &cols_in_row, 1, MPI_INT, MPI_SUM, col_comm);
 
-    // Now broadcast within comm to set global dims consistently:
+    // broadcast within comm to set global dims consistently
     global_rows = rows_in_col;
     global_cols = cols_in_row;
     MPI_Bcast(&global_rows, 1, MPI_INT, 0, col_comm); // from my_r==0?
     MPI_Bcast(&global_cols, 1, MPI_INT, 0, row_comm);
 
-    // Set starts using the known global dims and uneven partition
+    // set starts using the known global dims and uneven partition
     row_start = block_start_uneven(global_rows, Pr, my_r);
     col_start = block_start_uneven(global_cols, Pc, my_c);
 
@@ -365,7 +360,7 @@ void DistributedMatrix::spmv(const std::vector<double>& x_global,
                              double* comp_time_ms) const
 {
     if (row_comm == MPI_COMM_NULL) {
-        // 1D mode (x_global replicated is assumed here)
+        // 1D mode
         y_local.resize(local_rows);
 
         auto comp_start = high_resolution_clock::now();
@@ -434,7 +429,7 @@ void DistributedMatrix::spmv(const std::vector<double>& x_global,
     // TRUE 2D PARTITIONING (Pr > 1 && Pc > 1)
     // ============================================================
 
-    // PHASE 1: BROADCAST X BLOCKS ALONG COLUMNS
+    // PHASE 1: Broadcast X blocks along columns
     std::vector<double> x_block(local_cols, 0.0);
 
     auto comm1_start = high_resolution_clock::now();
@@ -453,7 +448,7 @@ void DistributedMatrix::spmv(const std::vector<double>& x_global,
 
     auto comm1_end = high_resolution_clock::now();
 
-    // PHASE 2: LOCAL COMPUTATION
+    // PHASE 2: Local computation
     std::vector<double> y_partial(local_rows, 0.0);
 
     auto comp_start = high_resolution_clock::now();
@@ -470,16 +465,16 @@ void DistributedMatrix::spmv(const std::vector<double>& x_global,
 
     auto comp_end = high_resolution_clock::now();
 
-    // PHASE 3: REDUCE RESULTS ALONG ROWS (to column-root only)
+    // PHASE 3: Reduce results along rows (to column-root only)
     auto comm2_start = high_resolution_clock::now();
 
     y_local.resize(local_rows, 0.0);
 
-    // Only my_c==0 receives the reduced y for this row-block
+    // Only my_c==0 receives the reduced y for this row-block!!!
     MPI_Reduce(y_partial.data(), y_local.data(), local_rows,
                MPI_DOUBLE, MPI_SUM, 0, row_comm);
 
-    // Keep others zeroed (optional safety)
+    // Keep others zeroed (safety)
     if (my_c != 0) {
         std::fill(y_local.begin(), y_local.end(), 0.0);
     }

@@ -131,7 +131,7 @@ void COOMatrix::generateRandomSparseNNZ(int n, double density, int target_nnz) {
         int attempts = 0;
         int64_t pos;
         
-        // Ensure unique positions (optional but good for realistic matrices)
+        // Ensure unique positions (good for realistic matrices)
         do {
             int r = row_dist(gen);
             int c = col_dist(gen);
@@ -151,7 +151,6 @@ void COOMatrix::generateRandomSparseNNZ(int n, double density, int target_nnz) {
         values[i] = value_dist(gen);
     }
 }
-// s_matrix_debug.cpp - Update convertFromCOO function
 void CSRMatrix::convertFromCOO(const COOMatrix& coo) {
     std::cout << "CSR::convertFromCOO called: coo.rows=" << coo.rows
               << ", coo.cols=" << coo.cols << ", coo.nnz=" << coo.nnz << std::endl;
@@ -203,7 +202,7 @@ void CSRMatrix::convertFromCOO(const COOMatrix& coo) {
     // Count non-zeros per row (with bounds checking)
     for (int i = 0; i < nnz; i++) {
         int row = coo.row_idx[i];
-        // Double-check bounds
+        // dDouble-check bounds
         if (row >= 0 && row < rows) {
             row_ptr[row + 1]++;
         } else {
